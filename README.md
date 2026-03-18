@@ -9,7 +9,7 @@ Real-time emergency coordination platform for communities, campuses, and industr
 - Automated rule-based escalation
 - Live WebSocket notifications
 - Geospatial proximity matching
-- Mobile-first dashboard (coming soon)
+- Mobile-first dashboard for monitoring and action
 
 ## Quick Links
 
@@ -17,9 +17,10 @@ Real-time emergency coordination platform for communities, campuses, and industr
 - **[API Reference](#api-endpoints)** - REST API documentation
 - **[WebSocket Events](#websocket-events)** - Real-time event specifications
 
-## Technology
+## Technology Stack
 
-Node.js • Fastify • TypeScript • MongoDB • Socket.io • React Native
+**Backend:** Node.js • Fastify • TypeScript • MongoDB • Socket.io  
+**Frontend:** React Native • Expo • TypeScript
 
 ## Project Structure
 
@@ -45,7 +46,15 @@ smart-emergency-response-system/
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── .env.example
-└── frontend/                    # React Native mobile app (coming soon)
+└── frontend/                    # React Native mobile app
+    ├── src/
+    │   ├── components/          # Reusable UI components (IncidentCard, ResourceCard)
+    │   ├── screens/             # Main screens (Dashboard, Resources)
+    │   ├── services/            # API and WebSocket services
+    │   ├── types/               # TypeScript interfaces
+    │   └── constants/           # Theme and configuration
+    ├── App.tsx
+    └── package.json
 ```
 
 ---
@@ -57,8 +66,9 @@ smart-emergency-response-system/
 - Node.js 18+
 - MongoDB 6+
 - npm or yarn
+- Expo CLI (for mobile app)
 
-### Setup
+### Backend Setup
 
 **1. Install dependencies**
 ```bash
@@ -91,6 +101,41 @@ npm run build && npm start
 ```
 
 Server runs on `http://localhost:3000`
+
+### Frontend Setup
+
+**1. Install dependencies**
+```bash
+cd frontend
+npm install
+```
+
+**2. Configure API endpoint**
+
+For testing on physical device, update `src/constants/theme.ts`:
+```typescript
+export const API_BASE_URL = 'http://YOUR_IP:3000/api';
+export const WEBSOCKET_URL = 'http://YOUR_IP:3000';
+```
+
+**3. Start the app**
+```bash
+# Start Expo dev server
+npm start
+
+# Run on iOS simulator
+npm run ios
+
+# Run on Android emulator
+npm run android
+```
+
+### Full System Test
+
+1. Start backend: `cd backend && npm run dev`
+2. Start frontend: `cd frontend && npm start`
+3. Create incident via mobile app or API
+4. Watch real-time updates in mobile dashboard
 
 ---
 
@@ -309,20 +354,36 @@ curl -X POST http://localhost:3000/api/assignments/match \
 
 ---
 
+## Mobile App Features
+
+- **Real-time Dashboard**: Live incident tracking with WebSocket updates
+- **Resource Management**: View and track all emergency response resources
+- **Smart Notifications**: Instant alerts for new incidents and escalations
+- **Statistics Overview**: Real-time system metrics
+- **Pull to Refresh**: Manual data synchronization
+- **Connection Status**: Visual indicator for WebSocket connection
+- **Auto-reconnect**: Resilient WebSocket connection handling
+
 ## Development
 
-**Code Structure:**
-- `models/` - Mongoose schemas
+**Backend Structure:**
+- `models/` - Mongoose schemas with indexes
 - `modules/` - Feature modules (service + routes)
 - `services/` - Shared services (WebSocket)
 - `config/` - Configuration and database
-- `utils/` - Helper functions
+- `utils/` - Helper functions (distance, scoring)
+
+**Frontend Structure:**
+- `components/` - Reusable UI components
+- `screens/` - Main application screens
+- `services/` - API client and WebSocket service
+- `types/` - TypeScript type definitions
+- `constants/` - Theme and configuration
 
 **Adding Features:**
-1. Create model in `models/`
-2. Implement service in `modules/<feature>/`
-3. Add routes and register in `app.ts`
-4. Update ARCHITECTURE.md
+1. Backend: Create model → Implement service → Add routes → Register in `app.ts`
+2. Frontend: Create component → Add screen → Connect API → Update navigation
+3. Update ARCHITECTURE.md with design decisions
 
 See [ARCHITECTURE.md](./architecture/ARCHITECTURE.md) for design patterns, optimization strategies, and technical decisions.
 
@@ -340,4 +401,4 @@ git push origin feat/your-feature
 
 ---
 
-**Built with** Node.js • Fastify • MongoDB • Socket.io • TypeScript
+**Built with** Node.js • Fastify • MongoDB • Socket.io • React Native • TypeScript
