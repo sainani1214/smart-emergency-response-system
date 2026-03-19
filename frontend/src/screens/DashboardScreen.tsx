@@ -182,6 +182,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.light,
+    paddingTop: 50, // Safe area padding for top
   },
   loadingContainer: {
     flex: 1,
@@ -196,9 +197,10 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: SIZES.padding,
+    paddingBottom: 100, // Extra padding at bottom for tab bar
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   titleContainer: {
     flexDirection: 'row',
