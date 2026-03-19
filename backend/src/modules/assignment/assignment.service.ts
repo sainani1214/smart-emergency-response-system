@@ -18,6 +18,13 @@ interface AssignmentScore {
 
 export class AssignmentService {
   /**
+   * Get resources eligible for an incident type (public method)
+   */
+  async getEligibleResources(incidentType: string): Promise<IResource[]> {
+    return this.findEligibleResources(incidentType);
+  }
+
+  /**
    * Smart assignment algorithm - finds the best resource for an incident
    */
   async findBestResource(incident: IIncident): Promise<{
@@ -27,7 +34,7 @@ export class AssignmentService {
     eta: number;
   } | null> {
     // Get resources that can handle this incident type
-    const availableResources = await this.getEligibleResources(incident.type);
+    const availableResources = await this.findEligibleResources(incident.type);
 
     if (availableResources.length === 0) {
       return null;
@@ -145,7 +152,7 @@ export class AssignmentService {
   /**
    * Get eligible resources for an incident type
    */
-  private async getEligibleResources(incidentType: string): Promise<IResource[]> {
+  private async findEligibleResources(incidentType: string): Promise<IResource[]> {
     const typeMapping: Record<string, string[]> = {
       medical: ['ambulance'],
       fire: ['fire_truck'],

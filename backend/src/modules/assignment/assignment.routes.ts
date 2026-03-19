@@ -19,7 +19,24 @@ export default async function assignmentRoutes(fastify: FastifyInstance) {
       const match = await assignmentService.findBestResource(incident);
       
       if (!match) {
-        return reply.code(404).send({ error: 'No available resources found' });
+        // Get resource statistics to provide helpful message
+        const resourceStats = await resourceService.getStatistics();
+        const eligibleResources = await assignmentService.getEligibleResources(incident.type);
+        
+        return reply.code(404).send({ 
+          error: 'No available resources found',
+          details: {
+            message: eligibleResources.length === 0 
+              ? `No resources available for incident type: ${incident.type}`
+              : `All ${eligibleResources.length} eligible resources are currently busy`,
+            totalResources: resourceStats.total,
+            availableResources: resourceStats.byStatus?.available || 0,
+            incidentType: incident.type,
+            suggestion: resourceStats.total < 10 
+              ? 'Consider adding more emergency resources to the system'
+              : 'Resources are currently deployed. Consider escalating or waiting for availability'
+          }
+        });
       }
 
       // Create assignment
@@ -39,7 +56,7 @@ export default async function assignmentRoutes(fastify: FastifyInstance) {
 
       // Send notification
       await notificationService.notifyResourceAssigned(
-        match.resource.unit_id,
+        match.resource._id.toString(),
         incident,
         assignment
       );
