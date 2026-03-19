@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Incident, IncidentSeverity, IncidentStatus } from '../types';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Incident, IncidentSeverity, IncidentStatus, IncidentType } from '../types';
 import { COLORS, SIZES } from '../constants/theme';
 
 interface IncidentCardProps {
@@ -41,13 +41,39 @@ const IncidentCard: React.FC<IncidentCardProps> = ({ incident, onPress }) => {
     }
   };
 
+  const getIncidentImage = (type: IncidentType) => {
+    // High-quality emergency-themed Unsplash images
+    const images = {
+      [IncidentType.MEDICAL]: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=800&h=300&fit=crop&q=80',
+      [IncidentType.FIRE]: 'https://images.unsplash.com/photo-1589650112323-fea0bb9dd598?w=800&h=300&fit=crop&q=80',
+      [IncidentType.SECURITY]: 'https://images.unsplash.com/photo-1557324232-b8917d3c3dcb?w=800&h=300&fit=crop&q=80',
+      [IncidentType.WATER]: 'https://images.unsplash.com/photo-1581094271901-8022df4466f9?w=800&h=300&fit=crop&q=80',
+      [IncidentType.POWER]: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&h=300&fit=crop&q=80',
+    };
+    return images[type] || images[IncidentType.MEDICAL];
+  };
+
+  const getTypeIcon = (type: IncidentType) => {
+    const icons = {
+      [IncidentType.MEDICAL]: '🚑',
+      [IncidentType.FIRE]: '🔥',
+      [IncidentType.SECURITY]: '🛡️',
+      [IncidentType.WATER]: '💧',
+      [IncidentType.POWER]: '⚡',
+    };
+    return icons[type] || '⚠️';
+  };
+
   const formatTime = (date: string) => {
     const diff = Date.now() - new Date(date).getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(minutes / 60);
 
     if (hours > 0) {
-      return `${hours}h ${minutes % 60}m ago`;
+      return `${hours}h ago`;
+    }
+    if (minutes < 1) {
+      return 'Just now';
     }
     return `${minutes}m ago`;
   };
@@ -56,150 +82,179 @@ const IncidentCard: React.FC<IncidentCardProps> = ({ incident, onPress }) => {
     <TouchableOpacity
       style={styles.card}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
+      disabled={!onPress}
     >
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View
-            style={[
-              styles.severityIndicator,
-              { backgroundColor: getSeverityColor(incident.severity) },
-            ]}
-          />
-          <Text style={styles.incidentId}>{incident.incident_id}</Text>
-        </View>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusColor(incident.status) },
-          ]}
-        >
-          <Text style={styles.statusText}>
-            {incident.status.replace('-', ' ').toUpperCase()}
-          </Text>
+      {/* Image Header */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={{ uri: getIncidentImage(incident.type) }}
+          style={styles.image}
+          resizeMode="cover"
+        />
+        <View style={styles.imageOverlay}>
+          <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(incident.severity) }]}>
+            <Text style={styles.severityText}>{incident.severity.toUpperCase()}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(incident.status) + 'CC' }]}>
+            <Text style={styles.statusText}>
+              {incident.status.replace('-', ' ').toUpperCase()}
+            </Text>
+          </View>
         </View>
       </View>
 
+      {/* Content */}
       <View style={styles.content}>
-        <Text style={styles.type}>
-          {incident.type.toUpperCase()} • {incident.severity.toUpperCase()}
-        </Text>
+        <View style={styles.header}>
+          <Text style={styles.typeIcon}>{getTypeIcon(incident.type)}</Text>
+          <Text style={styles.incidentId}>{incident.incident_id}</Text>
+          <Text style={styles.timeText}>{formatTime(incident.created_at)}</Text>
+        </View>
+
         <Text style={styles.description} numberOfLines={2}>
           {incident.description}
         </Text>
-        <Text style={styles.location} numberOfLines={1}>
-          📍 {incident.location.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`}
-        </Text>
-      </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.timeText}>{formatTime(incident.created_at)}</Text>
-        <Text style={styles.priorityText}>
-          Priority: {incident.priority_score.toFixed(1)}
-        </Text>
-      </View>
-
-      {incident.escalation_level > 0 && (
-        <View style={styles.escalationBadge}>
-          <Text style={styles.escalationText}>
-            ⚠️ Escalated (Level {incident.escalation_level})
-          </Text>
+        <View style={styles.footer}>
+          <View style={styles.locationContainer}>
+            <Text style={styles.locationIcon}>📍</Text>
+            <Text style={styles.location} numberOfLines={1}>
+              {incident.location.address || `${incident.location.lat.toFixed(3)}, ${incident.location.lng.toFixed(3)}`}
+            </Text>
+          </View>
         </View>
-      )}
+      </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.white,
-    borderRadius: SIZES.borderRadius,
-    padding: SIZES.padding,
-    marginBottom: 12,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radius,
+    marginHorizontal: SIZES.padding,
+    marginBottom: SIZES.marginSm,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 3,
+    overflow: 'hidden',
   },
-  header: {
+  imageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 160,
+    backgroundColor: COLORS.grayLight,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    padding: SIZES.paddingSm,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  severityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    marginTop: 2,
+    marginLeft: 2,
+    marginRight: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  severityIndicator: {
-    width: 4,
-    height: 20,
-    borderRadius: 2,
-    marginRight: 8,
-  },
-  incidentId: {
-    fontSize: SIZES.md,
+  severityText: {
+    fontSize: SIZES.caption2,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: COLORS.white,
+    letterSpacing: 0.3,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    marginTop: 2,
+    marginLeft: 2,
+    marginRight: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   statusText: {
-    fontSize: SIZES.xs,
+    fontSize: SIZES.caption2,
     fontWeight: '600',
     color: COLORS.white,
   },
   content: {
-    marginBottom: 12,
+    padding: SIZES.paddingMd,
   },
-  type: {
-    fontSize: SIZES.sm,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.marginSm,
+  },
+  typeIcon: {
+    fontSize: 22,
+    marginRight: 8,
+  },
+  incidentId: {
+    fontSize: SIZES.footnote,
     fontWeight: '600',
-    color: COLORS.gray,
-    marginBottom: 4,
+    color: COLORS.text,
+    flex: 1,
+    letterSpacing: 0.2,
+  },
+  timeText: {
+    fontSize: SIZES.caption2,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
   },
   description: {
-    fontSize: SIZES.md,
-    color: COLORS.dark,
-    marginBottom: 6,
-    lineHeight: 20,
-  },
-  location: {
-    fontSize: SIZES.sm,
-    color: COLORS.gray,
+    fontSize: SIZES.subhead,
+    fontWeight: '400',
+    color: COLORS.text,
+    lineHeight: 22,
+    marginBottom: SIZES.marginSm,
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.light,
+    marginTop: SIZES.marginSm,
   },
-  timeText: {
-    fontSize: SIZES.sm,
-    color: COLORS.gray,
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    backgroundColor: COLORS.grayLight,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: SIZES.radiusXs,
   },
-  priorityText: {
-    fontSize: SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.primary,
+  locationIcon: {
+    fontSize: 14,
+    marginRight: 6,
   },
-  escalationBadge: {
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: '#fef3c7',
-    borderRadius: 6,
-  },
-  escalationText: {
-    fontSize: SIZES.sm,
-    fontWeight: '600',
-    color: '#f59e0b',
-    textAlign: 'center',
+  location: {
+    fontSize: SIZES.caption1,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+    flex: 1,
   },
 });
 

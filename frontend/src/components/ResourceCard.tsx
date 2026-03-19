@@ -1,14 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Resource, ResourceType, ResourceStatus } from '../types';
 import { COLORS, SIZES } from '../constants/theme';
 
 interface ResourceCardProps {
   resource: Resource;
-  onPress?: () => void;
 }
 
-const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
+const ResourceCard: React.FC<ResourceCardProps> = ({ resource }) => {
   const getStatusColor = (status: ResourceStatus) => {
     switch (status) {
       case ResourceStatus.AVAILABLE:
@@ -55,11 +54,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
   };
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+    <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.icon}>{getTypeIcon(resource.type)}</Text>
@@ -138,7 +133,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
           Updated {formatTime(resource.last_updated)}
         </Text>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
