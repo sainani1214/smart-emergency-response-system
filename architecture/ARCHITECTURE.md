@@ -1,442 +1,194 @@
-# Smart Emergency Response System - System Architecture
+# Smart Emergency Response System - Architecture
 
-## Executive Summary
+## Overview
+A real-time emergency response coordination platform with mobile-first design, intelligent resource assignment, and automated escalations.
 
-A real-time emergency response coordination platform designed to ingest incident events, intelligently assign resources based on multi-factor optimization, manage automated escalations, and provide live notifications to responders and operational stakeholders.
+**Key Features:**
+- 🚨 Real-time incident tracking with WebSocket integration
+- 🎯 Smart resource assignment using proximity-based algorithms  
+- 📱 Mobile dashboard with live map visualization
+- 🔔 Real-time notification system
+- ⚠️ Automated escalation engine
 
----
-
-## System Overview
-
-### High-Level Architecture
+## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                   PRESENTATION LAYER                                 │
-│                   Mobile Application (React Native)                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
-│  │  Dashboard   │  │  Incidents   │  │  Resources   │              │
-│  │  Monitoring  │  │  Management  │  │  Tracking    │              │
-│  └──────────────┘  └──────────────┘  └──────────────┘              │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                 Frontend (React Native)                     │
+│  Dashboard │ Map View │ Resources │ Notifications │ Report  │
+└─────────────────────────────────────────────────────────────┘
                               ▲ ▼
-                    WebSocket (Socket.io) + REST API
+                    WebSocket + REST API
                               ▲ ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    APPLICATION LAYER                                 │
-│                    Backend Services (Node.js + Fastify)              │
-│                                                                       │
-│  ┌────────────────────────────────────────────────────────────┐    │
-│  │              REAL-TIME EVENT PROCESSOR                      │    │
-│  │  - Incident Ingestion    - Event Validation                │    │
-│  │  - Priority Calculation  - Real-time Broadcasting          │    │
-│  └────────────────────────────────────────────────────────────┘    │
-│                              ▲ ▼                                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐             │
-│  │   INCIDENT   │  │   RESOURCE   │  │  ASSIGNMENT  │             │
-│  │   SERVICE    │  │   SERVICE    │  │   ENGINE     │             │
-│  │              │  │              │  │              │             │
-│  │ - Create     │  │ - Track      │  │ - Smart      │             │
-│  │ - Categorize │  │ - Update     │  │   Matching   │             │
-│  │ - Escalate   │  │ - Capacity   │  │ - Optimize   │             │
-│  └──────────────┘  └──────────────┘  └──────────────┘             │
-│                              ▲ ▼                                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐             │
-│  │  ESCALATION  │  │ NOTIFICATION │  │   ANALYTICS  │             │
-│  │    ENGINE    │  │   SERVICE    │  │   SERVICE    │             │
-│  │              │  │              │  │              │             │
-│  │ - Rules      │  │ - Push       │  │ - Metrics    │             │
-│  │ - Timers     │  │ - SMS/Email  │  │ - Reports    │             │
-│  │ - Auto-raise │  │ - Multi-ch   │  │ - Insights   │             │
-│  └──────────────┘  └──────────────┘  └──────────────┘             │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                Backend (Node.js + Fastify)                  │
+│  Incident │ Assignment │ Resource │ Notification │ Socket   │
+│  Service  │  Service   │ Service  │   Service    │ Service  │
+└─────────────────────────────────────────────────────────────┘
                               ▲ ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                     DATA LAYER                                       │
-│                     Database (MongoDB)                               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐             │
-│  │  Incidents   │  │  Resources   │  │ Assignments  │             │
-│  │  Collection  │  │  Collection  │  │  Collection  │             │
-│  └──────────────┘  └──────────────┘  └──────────────┘             │
-│  ┌──────────────┐  ┌──────────────┐                                │
-│  │ Escalations  │  │Notifications │                                │
-│  │  Collection  │  │  Collection  │                                │
-│  └──────────────┘  └──────────────┘                                │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    MongoDB Atlas                            │
+│  Incidents │ Resources │ Assignments │ Notifications       │
+└─────────────────────────────────────────────────────────────┘
 ```
-
----
 
 ## Core Components
 
-### 1. Incident Management Service
+### Frontend (React Native + Expo)
+- **Dashboard**: Real-time stats and active incidents
+- **Map View**: Live resource tracking and incident locations
+- **Incident Reporting**: Form-based incident creation
+- **Notifications**: Real-time alerts and updates
+- **Resource Management**: Resource status and assignments
 
-**Responsibilities:**
-- Real-time incident ingestion via REST API
-- Automatic categorization by type (fire, medical, security, water, power)
-- Dynamic priority calculation based on severity, type, and escalation level
-- Status lifecycle management (open → assigned → in-progress → resolved → closed)
-- Geospatial querying for location-based operations
+### Backend Services (Node.js + Fastify)
+- **Incident Service**: CRUD operations, status management
+- **Assignment Service**: Smart resource matching algorithm
+- **Resource Service**: Location tracking, availability management  
+- **Notification Service**: Multi-channel notifications
+- **Socket Service**: Real-time WebSocket events
+- **Simulation Service**: Automated incident generation for testing
 
-**Key Features:**
-- Priority scoring algorithm for intelligent triage
-- Status transition validation and auditing
-- Geospatial indexing for proximity-based queries
-- Real-time statistics and metrics aggregation
+### Database (MongoDB Atlas)
+```javascript
+// Core Data Models
+Incident: {
+  incident_id, type, severity, location, status,
+  assigned_resource, priority_score, timestamps
+}
 
-### 2. Resource Management Service
+Resource: {
+  unit_id, type, status, location, capabilities,
+  current_assignment, availability
+}
 
-**Responsibilities:**
-- Unit tracking (ambulances, fire trucks, security personnel, maintenance crews)
-- Real-time status management (available, dispatched, busy, offline)
-- Capacity utilization monitoring
-- GPS location tracking and updates
-- Skills and equipment inventory management
+Assignment: {
+  incident_id, resource_id, distance, eta,
+  score, status, timestamps
+}
 
-**Key Features:**
-- Geospatial queries for nearest available resources
-- Type-based resource filtering
-- Capacity-aware availability checks
-- Historical utilization analytics
-
-### 3. Smart Assignment Engine
-
-**Multi-Factor Optimization Algorithm:**
-
-The assignment engine evaluates potential resource assignments using a weighted scoring system:
-
-```
-Assignment Score = (Distance Factor × 0.35) + 
-                   (Availability Factor × 0.25) + 
-                   (Type Match Factor × 0.20) + 
-                   (Workload Factor × 0.15) + 
-                   (Priority Factor × 0.05)
-```
-
-**Factor Breakdown:**
-
-- **Distance (35%)**: Haversine formula calculation, normalized against 50km maximum
-- **Availability (25%)**: Current capacity utilization (lower is better)
-- **Type Match (20%)**: Perfect match (1.0) vs acceptable match (0.3)
-- **Workload (15%)**: Historical assignment count in last 24 hours
-- **Priority (5%)**: Incident priority score bonus for critical cases
-
-**Advanced Features:**
-- Dynamic re-routing for critical incidents
-- Assignment history tracking
-- ETA calculation based on distance and average emergency speed
-- Rejection and reassignment handling
-
-### 4. Escalation Engine
-
-**Rule-Based Automation:**
-
-| Escalation Type | Trigger Condition | Threshold | Action |
-|----------------|-------------------|-----------|---------|
-| Time-Based | Incident unassigned | 5 minutes | Notify supervisors |
-| Time-Based | No progress after assignment | 15 minutes | Escalate to manager |
-| Severity-Based | Critical incident created | Immediate | Alert all supervisors |
-| Capacity-Based | All resources busy | Real-time | Request external resources |
-
-**Features:**
-- Automatic escalation monitoring
-- Manual escalation with reason tracking
-- Acknowledgment workflow
-- Escalation resolution tracking
-- Historical escalation analytics
-
-### 5. Notification Service
-
-**Multi-Channel Delivery:**
-- In-app notifications (WebSocket push)
-- SMS notifications (Twilio integration ready)
-- Email notifications (SendGrid integration ready)
-- Push notifications (FCM integration ready)
-
-**Notification Types:**
-- Incident lifecycle events (created, assigned, escalated, resolved)
-- Resource assignment alerts
-- System-wide alerts
-- Status change notifications
-
-**Features:**
-- Priority-based delivery
-- Retry mechanism for failed deliveries
-- Read status tracking
-- Notification history with TTL
-- Delivery statistics and failure rate monitoring
-
----
-
-## Data Flow
-
-### Incident Creation Flow
-
-```
-1. POST /api/incidents → Incident Event
-2. Validate request payload
-3. Calculate priority score
-4. Save to MongoDB
-5. Broadcast via WebSocket to all operators
-6. Trigger Assignment Engine
-7. Execute smart matching algorithm
-8. Create assignment record
-9. Update resource status
-10. Send notification to assigned resource
-11. Update all connected dashboards in real-time
-```
-
-### Resource Location Update Flow
-
-```
-1. POST /api/resources/:id/location → Location Event
-2. Validate coordinates
-3. Update resource document
-4. Broadcast location update via WebSocket
-5. Check for pending reassignments
-6. Recalculate ETAs for active assignments
-7. Update dashboards
-```
-
-### Escalation Flow
-
-```
-1. Background monitor checks active incidents
-2. Evaluate escalation rules
-3. Detect rule violations
-4. Create escalation record
-5. Increment incident escalation level
-6. Recalculate priority score
-7. Send notifications to supervisors
-8. Re-trigger assignment engine if needed
-9. Log escalation event
-```
-
----
-
-## Data Models
-
-### Incident Schema
-
-```typescript
-{
-  incident_id: string (unique, indexed)
-  type: enum [medical, fire, security, water, power]
-  severity: enum [low, medium, high, critical]
-  location: {
-    lat: number
-    lng: number
-    address?: string
-  } (geospatial 2dsphere index)
-  description: string
-  reporter: {
-    name: string
-    contact: string
-    email?: string
-  }
-  status: enum [open, assigned, in-progress, resolved, closed]
-  priority_score: number (calculated, indexed)
-  assigned_resource?: ObjectId (ref: Resource)
-  escalation_level: number (default: 0)
-  created_at: Date (indexed)
-  updated_at: Date
-  resolved_at?: Date
-  closed_at?: Date
-  metadata?: Object
+Notification: {
+  type, recipient, title, message, channel,
+  priority, status, related_incident
 }
 ```
 
-**Indexes:**
-- Single: incident_id, type, severity, status, priority_score, created_at
-- Compound: (status, priority_score), (status, created_at), (type, status)
-- Geospatial: location (2dsphere)
+## API Endpoints
 
-### Resource Schema
+### Incidents
+- `POST /incidents` - Create incident with auto-assignment
+- `GET /incidents` - List incidents with filters
+- `GET /incidents/:id` - Get incident details
+- `PATCH /incidents/:id/status` - Update incident status
 
-```typescript
-{
-  unit_id: string (unique, indexed)
-  type: enum [ambulance, fire_truck, security, maintenance, police]
-  status: enum [available, dispatched, busy, offline]
-  location: {
-    lat: number
-    lng: number
-  } (geospatial 2dsphere index)
-  capacity: {
-    current: number
-    max: number
-  }
-  assigned_to?: ObjectId (ref: Incident)
-  skills: string[]
-  crew_size?: number
-  equipment?: string[]
-  contact?: string
-  last_updated: Date
-  metadata?: Object
-}
+### Resources  
+- `GET /resources` - List resources with availability
+- `PATCH /resources/:id/status` - Update resource status
+- `PATCH /resources/:id/location` - Update resource location
+
+### Assignments
+- `POST /assignments/smart` - Trigger smart assignment
+- `GET /assignments` - List assignments
+
+### Notifications
+- `GET /notifications` - Get user notifications
+- `PATCH /notifications/:id/read` - Mark as read
+
+## Smart Assignment Algorithm
+
+```javascript
+// Assignment scoring formula
+score = (proximityWeight * proximityScore) + 
+        (availabilityWeight * availabilityScore) + 
+        (capabilityWeight * capabilityScore)
+
+// Factors considered:
+- Distance to incident (primary factor)
+- Resource availability and current load
+- Resource type compatibility with incident
+- Resource capability match
+- Current assignments and capacity
 ```
 
-**Indexes:**
-- Single: unit_id, type, status
-- Compound: (type, status), (status, location)
-- Geospatial: location (2dsphere)
+## Real-time Features
 
-### Assignment Schema
+### WebSocket Events
+- `incident:created` - New incident broadcast
+- `incident:updated` - Status changes
+- `incident:assigned` - Resource assignment
+- `resource:updated` - Resource status changes
+- `notification:new` - Real-time notifications
 
-```typescript
-{
-  incident_id: ObjectId (ref: Incident, indexed)
-  resource_id: ObjectId (ref: Resource, indexed)
-  assigned_at: Date (indexed)
-  accepted_at?: Date
-  started_at?: Date
-  completed_at?: Date
-  cancelled_at?: Date
-  status: enum [pending, accepted, in-progress, completed, cancelled, rejected]
-  distance: number (km)
-  eta: number (minutes)
-  actual_response_time?: number (minutes)
-  score: number (assignment optimization score)
-  notes?: string
-  metadata?: Object
-}
-```
-
-**Indexes:**
-- Compound: (incident_id, status), (resource_id, status), (status, assigned_at)
-
----
+### Live Updates
+- Dashboard statistics refresh automatically
+- Map markers update in real-time
+- Notification badges update instantly
+- Resource status reflects immediately
 
 ## Technology Stack
 
-| Layer | Technology | Justification |
-|-------|-----------|---------------|
-| **Backend Framework** | Fastify | 3x faster than Express, built-in schema validation, plugin architecture |
-| **Real-time Communication** | Socket.io | Bi-directional WebSocket with fallbacks, room-based broadcasting, auto-reconnection |
-| **Database** | MongoDB | Geospatial queries, flexible schema, horizontal scaling, change streams |
-| **Language** | TypeScript | Type safety, improved developer experience, maintainability |
-| **Mobile** | React Native | Cross-platform, single codebase, native performance |
+**Frontend:**
+- React Native + Expo
+- TypeScript
+- Socket.io Client
+- React Navigation
+- Expo Location/Maps
 
----
+**Backend:**
+- Node.js + Fastify
+- TypeScript  
+- Socket.io Server
+- MongoDB + Mongoose
+- JWT Authentication
 
-## Key Engineering Decisions
+**Infrastructure:**
+- MongoDB Atlas (Database)
+- Local development environment
+- WebSocket for real-time communication
 
-### Why Fastify over Express?
+## Key Features
 
-- **Performance**: 3x faster request handling, optimized for high throughput
-- **Schema Validation**: Built-in JSON Schema validation reduces boilerplate
-- **Plugin System**: Modular architecture for better code organization
-- **Async/Await**: First-class async support, no callback hell
+### 1. Incident Management
+- Multi-type incident support (medical, fire, security, etc.)
+- Severity-based prioritization
+- Automated status transitions
+- Location-based incident mapping
 
-### Why MongoDB?
+### 2. Resource Assignment
+- Proximity-based smart matching
+- Real-time availability checking
+- Multi-factor scoring algorithm
+- Automatic assignment on incident creation
 
-- **Geospatial Queries**: Native support for 2dsphere indexes and $near operators
-- **Flexible Schema**: Different incident types can have varied metadata without migrations
-- **Change Streams**: Real-time data synchronization capabilities
-- **Horizontal Scaling**: Sharding for city-level scale (10,000+ incidents/day)
+### 3. Real-time Notifications
+- In-app notification center
+- WebSocket-based instant updates
+- Priority-based notification routing
+- Read/unread status tracking
 
-### Why Socket.io over Native WebSocket?
+### 4. Live Dashboard
+- Real-time incident statistics
+- Active incident monitoring
+- Resource utilization metrics
+- Apple-inspired modern UI design
 
-- **Abstraction**: Handles connection lifecycle, reconnection, heartbeats
-- **Rooms**: Efficient broadcasting to user groups (operators, responders)
-- **Fallback**: Auto-degrades to long-polling if WebSocket unavailable
-- **Acknowledgment**: Built-in event acknowledgment system
+### 5. Simulation & Testing
+- Automated incident generation
+- Resource seeding for development
+- Configurable simulation parameters
+- Real-time testing capabilities
 
-### Smart Assignment Algorithm Design
+## Development Setup
 
-The weighting system prioritizes factors based on emergency response research:
+1. **Backend**: `cd backend && npm install && npm run dev`
+2. **Frontend**: `cd frontend && npm install && npm start`
+3. **Database**: MongoDB Atlas connection configured
+4. **Environment**: Local development with hot reloading
 
-- **Distance (35%)**: Primary factor - faster arrival saves lives
-- **Availability (25%)**: Prevents resource overload and burnout
-- **Type Matching (20%)**: Ensures appropriate expertise
-- **Workload Distribution (15%)**: Fairness and prevents single-point bottlenecks
-- **Priority Boost (5%)**: Minor adjustment for critical incidents without dominating decision
+## Future Enhancements
 
----
-
-## Scalability Strategy
-
-### Horizontal Scaling Approach
-
-**Application Layer:**
-- Stateless backend services enable unlimited pod replication
-- Load balancer distributes API requests across instances
-- Socket.io with Redis adapter for cross-server messaging (future)
-
-**Database Layer:**
-- MongoDB replica set for read scaling
-- Sharding by geographic region for write scaling
-- Separate read replicas for analytics queries
-
-**Caching Strategy:**
-- Redis for hot data (active incidents, available resources)
-- In-memory caching for frequently accessed configurations
-- Edge caching for static mobile app assets
-
-### Performance Optimizations
-
-**Database:**
-- Compound indexes for common query patterns
-- Geospatial indexes for O(log n) location queries
-- Connection pooling to reduce overhead
-- Query result caching for dashboard statistics
-
-**Real-time Communication:**
-- Room-based Socket.io broadcasting (O(n) per room vs O(n^2) for all)
-- Event debouncing for high-frequency updates (location: max 1/5sec)
-- Payload compression for mobile clients
-
-**API:**
-- Pagination for list endpoints
-- Field filtering to reduce payload size
-- Response caching for immutable resources
-- Rate limiting to prevent abuse
-
-### City-Level Scale Targets
-
-- **Throughput**: 10,000+ incidents/day, 500+ concurrent resources
-- **Latency**: <100ms assignment decision time, <1s notification delivery
-- **Availability**: 99.9% uptime with automatic failover
-- **Concurrency**: 1,000+ simultaneous WebSocket connections
-
----
-
-## Security Considerations
-
-**Authentication & Authorization:**
-- JWT-based authentication for API and WebSocket connections
-- Role-based access control (admin, operator, responder, public)
-- Token refresh mechanism for mobile apps
-
-**Data Protection:**
-- TLS 1.3 for all transport encryption
-- MongoDB encryption at rest
-- Sensitive data (contact info) field-level encryption
-- PII data retention policies and auto-purging
-
-**API Security:**
-- JSON Schema validation on all endpoints
-- Rate limiting per IP/user (100 req/min default)
-- CORS configuration for allowed origins
-- Input sanitization to prevent injection attacks
-
-**Monitoring & Auditing:**
-- Structured logging with correlation IDs
-- Security event logging (failed auth, suspicious activity)
-- Audit trail for critical operations (escalations, manual assignments)
-
----
-
-## Design Trade-offs
-
-| Decision | Alternative | Rationale |
-|----------|-------------|-----------|
-| MongoDB | PostgreSQL + PostGIS | Native geospatial support, faster prototyping, schema flexibility |
-| Fastify | Express.js | Performance-critical for real-time, smaller memory footprint |
-| Socket.io | Native WebSocket | Abstracts complexity, production-tested, room support |
-| Monolith | Microservices | Simpler deployment, lower latency, easier debugging for POC |
-| React Native | Flutter | JavaScript ecosystem consistency, larger community |
-| In-memory Assignment | Queue-based | Real-time requirement (<1s), simplifies architecture |
-
----
-
+- Push notifications for mobile devices
+- GPS tracking for resource vehicles
+- Advanced analytics and reporting
+- Multi-tenant organization support
+- Integration with external emergency systems
