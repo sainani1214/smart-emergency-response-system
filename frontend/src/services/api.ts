@@ -104,4 +104,31 @@ export const assignmentsAPI = {
   },
 };
 
+// Notifications API
+export const notificationsAPI = {
+  getAll: async (params?: { recipient?: string; limit?: number }) => {
+    const response = await api.get('/notifications', { params });
+    return response.data;
+  },
+
+  getUnreadCount: async (recipient?: string) => {
+    const response = await api.get('/notifications/unread-count', { 
+      params: { recipient: recipient || 'system' }
+    });
+    return response.data;
+  },
+
+  markAsRead: async (id: string) => {
+    const response = await api.patch(`/notifications/${id}/read`);
+    return response.data;
+  },
+
+  markAllAsRead: async (recipient?: string) => {
+    const response = await api.patch('/notifications/mark-all-read', {}, {
+      params: { recipient: recipient || 'system' }
+    });
+    return response.data;
+  },
+};
+
 export default api;

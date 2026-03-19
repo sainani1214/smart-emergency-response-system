@@ -5,6 +5,7 @@ import { Incident, Resource, Assignment } from '../types';
 export enum SocketEvent {
   INCIDENT_CREATED = 'incident:created',
   INCIDENT_UPDATED = 'incident:updated',
+  INCIDENT_ASSIGNED = 'incident:assigned',
   INCIDENT_ESCALATED = 'incident:escalated',
   RESOURCE_UPDATED = 'resource:updated',
   RESOURCE_LOCATION_CHANGED = 'resource:location',
@@ -102,6 +103,10 @@ class WebSocketService {
 
   onIncidentEscalated(callback: EventCallback<Incident>) {
     this.on(SocketEvent.INCIDENT_ESCALATED, callback);
+  }
+
+  onIncidentAssigned(callback: EventCallback<{ incident: Incident; resource: Resource; assignment: Assignment }>) {
+    this.on(SocketEvent.INCIDENT_ASSIGNED, callback);
   }
 
   onResourceUpdated(callback: EventCallback<Resource>) {
