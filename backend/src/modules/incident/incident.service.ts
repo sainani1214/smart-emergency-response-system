@@ -99,19 +99,28 @@ export class IncidentService {
     incidentId: string, 
     status: IncidentStatus
   ): Promise<IIncident | null> {
+    console.log(`📝 Service: Updating incident ${incidentId} to status ${status}`);
+    
     const updateData: any = { status };
 
     if (status === IncidentStatus.RESOLVED) {
       updateData.resolved_at = new Date();
+      console.log(`✅ Adding resolved_at timestamp`);
     } else if (status === IncidentStatus.CLOSED) {
       updateData.closed_at = new Date();
+      console.log(`✅ Adding closed_at timestamp`);
     }
 
-    return Incident.findOneAndUpdate(
+    console.log(`🔍 Looking for incident with incident_id: ${incidentId}`);
+    const result = await Incident.findOneAndUpdate(
       { incident_id: incidentId },
       updateData,
       { new: true }
     ).populate('assigned_resource').exec();
+    
+    console.log(`📊 Update result:`, result ? 'Found and updated' : 'Not found');
+    
+    return result;
   }
 
   /**
