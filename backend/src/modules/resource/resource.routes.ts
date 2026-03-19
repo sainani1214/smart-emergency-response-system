@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import resourceService from './resource.service';
+import { resourceSeedService } from './resource.seed';
 import { ResourceStatus } from '../../models';
 
 export default async function resourceRoutes(fastify: FastifyInstance) {
@@ -106,6 +107,27 @@ export default async function resourceRoutes(fastify: FastifyInstance) {
     try {
       const stats = await resourceService.getStatistics();
       return reply.send(stats);
+    } catch (error: any) {
+      return reply.code(500).send({ error: error.message });
+    }
+  });
+
+  // Seed resources (for development/demo)
+  fastify.post('/resources/seed', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await resourceSeedService.seedResources();
+      const stats = await resourceService.getStatistics();
+      
+      // Broadcast to WebSocket clients
+      const socketService = (fastify as any).socketService;
+      if (socketService) {
+        socketService.emitToAll('resources:updated' as any, stats);
+      }
+      
+      return reply.send({ 
+        message: 'Resources seeded successfully', 
+        stats 
+      });
     } catch (error: any) {
       return reply.code(500).send({ error: error.message });
     }

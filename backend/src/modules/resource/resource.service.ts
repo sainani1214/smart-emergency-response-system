@@ -236,6 +236,14 @@ export class ResourceService {
       utilization: Math.round(utilization * 100) / 100
     };
   }
+
+  /**
+   * Delete multiple resources matching criteria
+   */
+  async deleteResources(criteria: any): Promise<{ deletedCount: number }> {
+    const result = await Resource.deleteMany(criteria);
+    return { deletedCount: result.deletedCount || 0 };
+  }
 }
 
 export default new ResourceService();
