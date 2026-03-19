@@ -328,6 +328,24 @@ export class NotificationService {
       failureRate: Math.round(failureRate * 100) / 100
     };
   }
+
+  /**
+   * Mark all notifications as read for a recipient
+   */
+  async markAllAsRead(recipient: string): Promise<{ modifiedCount: number }> {
+    const result = await Notification.updateMany(
+      { 
+        recipient,
+        status: { $ne: NotificationStatus.READ }
+      },
+      { 
+        status: NotificationStatus.READ,
+        read_at: new Date()
+      }
+    );
+
+    return { modifiedCount: result.modifiedCount || 0 };
+  }
 }
 
 export default new NotificationService();
