@@ -92,39 +92,40 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <View style={styles.titleContainer}>
-        <Text style={styles.title}>Emergency Dashboard</Text>
-        <View style={[styles.connectionStatus, wsConnected && styles.connected]}>
-          <View style={styles.statusDot} />
-          <Text style={styles.connectionText}>
+      <View style={styles.titleRow}>
+        <View style={styles.titleSection}>
+          <Text style={styles.title}>Emergency Dashboard</Text>
+          <Text style={styles.subTitle}>Real-time city operations</Text>
+        </View>
+
+        <View style={styles.connectionWrap}>
+          <View style={[styles.statusDot, wsConnected ? styles.dotLive : styles.dotOffline]} />
+          <Text style={[styles.connectionText, wsConnected ? styles.liveText : styles.offlineText]}>
             {wsConnected ? 'Live' : 'Offline'}
           </Text>
         </View>
       </View>
 
       {stats && (
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{stats.total}</Text>
-            <Text style={styles.statLabel}>Total Incidents</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statCardSmall}>
+            <Text style={[styles.statValueSmall, { color: COLORS.text }]}>{stats.total}</Text>
+            <Text style={styles.statLabelSmall}>Total</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: COLORS.open }]}>
-              {stats.byStatus?.open || 0}
-            </Text>
-            <Text style={styles.statLabel}>Open</Text>
+
+          <View style={styles.statCardSmall}>
+            <Text style={[styles.statValueSmall, { color: COLORS.open }]}>{stats.byStatus?.open || 0}</Text>
+            <Text style={styles.statLabelSmall}>Open</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: COLORS.inProgress }]}>
-              {stats.byStatus?.['in-progress'] || 0}
-            </Text>
-            <Text style={styles.statLabel}>Active</Text>
+
+          <View style={styles.statCardSmall}>
+            <Text style={[styles.statValueSmall, { color: COLORS.inProgress }]}>{stats.byStatus?.['in-progress'] || 0}</Text>
+            <Text style={styles.statLabelSmall}>Active</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: COLORS.resolved }]}>
-              {stats.byStatus?.resolved || 0}
-            </Text>
-            <Text style={styles.statLabel}>Resolved</Text>
+
+          <View style={styles.statCardSmall}>
+            <Text style={[styles.statValueSmall, { color: COLORS.resolved }]}>{stats.byStatus?.resolved || 0}</Text>
+            <Text style={styles.statLabelSmall}>Resolved</Text>
           </View>
         </View>
       )}
@@ -181,96 +182,133 @@ const DashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.light,
-    paddingTop: 50, // Safe area padding for top
+    backgroundColor: COLORS.background,
+    paddingTop: 50, // Safe area for status bar
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.light,
+    backgroundColor: COLORS.background,
   },
   loadingText: {
     marginTop: 12,
-    fontSize: SIZES.md,
-    color: COLORS.gray,
+    fontSize: SIZES.body,
+    color: COLORS.textSecondary,
   },
   listContent: {
-    padding: SIZES.padding,
-    paddingBottom: 100, // Extra padding at bottom for tab bar
+    paddingHorizontal: 8, // Reduced padding
+    paddingTop: 16,
+    paddingBottom: 120,
   },
+
+  /* Header */
   header: {
-    marginBottom: 24,
+    paddingHorizontal: SIZES.padding,
+    marginBottom: SIZES.marginLg,
   },
-  titleContainer: {
+  titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    alignItems: 'flex-start',
+    marginBottom: SIZES.spacingLg,
+  },
+  titleSection: {
+    flex: 1,
+    paddingRight: 16,
   },
   title: {
-    fontSize: SIZES.xxl,
+    fontSize: SIZES.title1,
     fontWeight: '700',
-    color: COLORS.dark,
+    color: COLORS.text,
+    lineHeight: 32,
   },
-  connectionStatus: {
+  subTitle: {
+    fontSize: SIZES.caption1,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+
+  /* Connection */
+  connectionWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.surface,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: COLORS.gray,
-  },
-  connected: {
-    backgroundColor: COLORS.success,
+    borderRadius: SIZES.radiusSm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.white,
-    marginRight: 6,
+    backgroundColor: COLORS.gray,
+    marginRight: 8,
+  },
+  dotLive: {
+    backgroundColor: COLORS.success,
+  },
+  dotOffline: {
+    backgroundColor: COLORS.grayLight,
   },
   connectionText: {
-    fontSize: SIZES.sm,
+    fontSize: SIZES.caption2,
     fontWeight: '600',
-    color: COLORS.white,
+    color: COLORS.text,
   },
-  statsContainer: {
+  liveText: {
+    color: COLORS.success,
+  },
+  offlineText: {
+    color: COLORS.textSecondary,
+  },
+
+  /* Stats */
+  statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+    alignItems: 'stretch',
+    marginBottom: SIZES.marginLg,
+    gap: 6,
+    height: 72, // Fixed height for consistent alignment
   },
-  statCard: {
+  statCardSmall: {
     flex: 1,
-    backgroundColor: COLORS.white,
-    padding: 12,
-    marginHorizontal: 4,
-    borderRadius: SIZES.borderRadius,
+    backgroundColor: COLORS.surface,
+    padding: SIZES.paddingSm - 2,
+    borderRadius: SIZES.radiusSm,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  statValue: {
-    fontSize: SIZES.xl,
+  statValueSmall: {
+    fontSize: SIZES.lg,
     fontWeight: '700',
-    color: COLORS.dark,
-    marginBottom: 4,
+    color: COLORS.text,
   },
-  statLabel: {
-    fontSize: SIZES.xs,
-    color: COLORS.gray,
+  statLabelSmall: {
+    fontSize: SIZES.caption2,
+    color: COLORS.textSecondary,
+    marginTop: 2,
     textAlign: 'center',
   },
+
   sectionTitle: {
-    fontSize: SIZES.lg,
+    fontSize: SIZES.title3,
     fontWeight: '600',
-    color: COLORS.dark,
-    marginBottom: 12,
+    color: COLORS.text,
+    marginBottom: 4,
   },
+
+  /* Empty */
   emptyState: {
     alignItems: 'center',
     paddingVertical: 60,
@@ -282,12 +320,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: SIZES.lg,
     fontWeight: '600',
-    color: COLORS.dark,
+    color: COLORS.text,
     marginBottom: 8,
   },
   emptyText: {
-    fontSize: SIZES.md,
-    color: COLORS.gray,
+    fontSize: SIZES.body,
+    color: COLORS.textSecondary,
     textAlign: 'center',
   },
 });
