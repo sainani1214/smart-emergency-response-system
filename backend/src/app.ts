@@ -5,6 +5,7 @@ import socketService from './services/socket.service';
 import incidentRoutes from './modules/incident/incident.routes';
 import resourceRoutes from './modules/resource/resource.routes';
 import assignmentRoutes from './modules/assignment/assignment.routes';
+import notificationRoutes from './modules/notification/notification.routes';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -32,6 +33,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.register(incidentRoutes, { prefix: '/api' });
   app.register(resourceRoutes, { prefix: '/api' });
   app.register(assignmentRoutes, { prefix: '/api' });
+  app.register(notificationRoutes, { prefix: '/api' });
 
   // Attach socket service to fastify instance for route access
   (app as any).socketService = socketService;

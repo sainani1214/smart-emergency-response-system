@@ -4,6 +4,9 @@ import { connectDatabase } from './config/database';
 import { config } from './config';
 import socketService from './services/socket.service';
 import escalationService from './modules/escalation/escalation.service';
+import SimulationService from './services/simulation.service';
+import { IncidentService } from './modules/incident/incident.service';
+import { resourceSeedService } from './modules/resource/resource.seed';
 
 async function start() {
   try {
@@ -27,6 +30,12 @@ async function start() {
     // Start escalation monitor
     startEscalationMonitor();
 
+    // Start simulation service if enabled
+    startSimulationService();
+
+    // Seed resources if needed
+    await resourceSeedService.seedIfNeeded();
+
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
@@ -46,6 +55,17 @@ function startEscalationMonitor() {
   }, intervalSeconds * 1000);
 
   console.log(`Escalation monitor started (interval: ${intervalSeconds}s)`);
+}
+
+function startSimulationService() {
+  const incidentService = new IncidentService();
+  const simulationService = new SimulationService(incidentService);
+  
+  if (process.env.ENABLE_SIMULATION === 'true') {
+    simulationService.start();
+  } else {
+    console.log('🎭 Simulation service disabled (set ENABLE_SIMULATION=true to enable)');
+  }
 }
 
 // Graceful shutdown
