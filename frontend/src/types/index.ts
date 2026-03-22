@@ -8,6 +8,39 @@ export interface Reporter {
   name: string;
   contact: string;
   email?: string;
+  user_id?: string;
+}
+
+export interface AssignedResourceSummary {
+  _id?: string;
+  unit_id?: string;
+  type?: string;
+  status?: string;
+  location?: Location;
+}
+
+export interface AcceptedResponderSummary {
+  _id?: string;
+  responder_id?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  responder_type?: string;
+}
+
+export interface AssignmentSummary {
+  _id?: string;
+  status: string;
+  eta?: number;
+  distance?: number;
+  score?: number;
+  assigned_at?: string;
+  accepted_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  accepted_by?: string;
+  resource_id?: AssignedResourceSummary;
+  responder_id?: AcceptedResponderSummary;
 }
 
 export enum IncidentType {
@@ -34,7 +67,7 @@ export enum IncidentStatus {
 }
 
 export interface Incident {
-  _id: string;
+  _id?: string;
   incident_id: string;
   type: IncidentType;
   severity: IncidentSeverity;
@@ -42,80 +75,104 @@ export interface Incident {
   description: string;
   reporter: Reporter;
   status: IncidentStatus;
-  priority_score: number;
-  assigned_resource?: Resource;
-  escalation_level: number;
+  priority_score?: number;
+  escalation_level?: number;
+  assigned_resource?: AssignedResourceSummary;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   resolved_at?: string;
   closed_at?: string;
 }
 
-export enum ResourceType {
-  AMBULANCE = 'ambulance',
-  FIRE_TRUCK = 'fire_truck',
-  SECURITY = 'security',
-  MAINTENANCE = 'maintenance',
-  POLICE = 'police',
+export interface IncidentWithAssignment {
+  incident: Incident;
+  latestAssignment: AssignmentSummary | null;
 }
 
-export enum ResourceStatus {
-  AVAILABLE = 'available',
-  DISPATCHED = 'dispatched',
-  BUSY = 'busy',
-  OFFLINE = 'offline',
+export interface IncidentsListResponse {
+  incidents: Incident[];
+  total: number;
 }
 
-export interface Resource {
-  _id: string;
-  unit_id: string;
-  type: ResourceType;
-  status: ResourceStatus;
+export interface NearbyResponder {
+  id: string;
+  name: string;
+  type: 'ambulance' | 'fire_truck' | 'police_vehicle' | 'security_unit';
   location: {
     lat: number;
     lng: number;
+    address: string;
   };
-  capacity: {
-    current: number;
-    max: number;
+  status: 'available' | 'responding' | 'busy';
+  skills: string[];
+  responseTimeEstimate: number;
+}
+
+export interface TrackingUpdate {
+  responderId: string;
+  location: {
+    lat: number;
+    lng: number;
+    address: string;
   };
-  assigned_to?: Incident;
-  skills?: string[];
-  crew_size?: number;
-  equipment?: string[];
-  contact?: string;
-  last_updated: string;
+  timestamp: string | Date;
+  distanceToUser: number;
+  estimatedArrival: number;
 }
 
-export enum AssignmentStatus {
-  PENDING = 'pending',
-  ACCEPTED = 'accepted',
-  IN_PROGRESS = 'in-progress',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled',
-  REJECTED = 'rejected',
+export interface EmergencySimulationResponse {
+  success: boolean;
+  emergencyId: string;
+  message?: string;
+  userLocation: {
+    lat: number;
+    lng: number;
+    address: string;
+  };
+  nearestResponders: NearbyResponder[];
 }
 
-export interface Assignment {
-  _id: string;
-  incident_id: Incident;
-  resource_id: Resource;
-  assigned_at: string;
-  accepted_at?: string;
-  started_at?: string;
-  completed_at?: string;
-  status: AssignmentStatus;
-  distance: number;
-  eta: number;
-  actual_response_time?: number;
-  score: number;
+export interface EmergencySimulationStatus {
+  success: boolean;
+  emergencyId: string;
+  userLocation: {
+    lat: number;
+    lng: number;
+    address: string;
+  };
+  emergencyType: string;
+  severity: string;
+  status: 'notifying' | 'assigned' | 'responding' | 'completed' | 'timeout';
+  createdAt: string;
+  nearestResponders: NearbyResponder[];
+  assignedResponder?: NearbyResponder;
+  responseHistory: Array<{
+    responderId: string;
+    response: 'accept' | 'reject';
+    timestamp: string;
+    delay: number;
+  }>;
+  trackingUpdates: TrackingUpdate[];
 }
 
-export interface Statistics {
-  total: number;
-  byStatus: Record<string, number>;
-  byType?: Record<string, number>;
-  bySeverity?: Record<string, number>;
-  averageResponseTime?: number;
-  utilization?: number;
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'user' | 'responder';
 }
+
+export interface AuthSuccessResponse {
+  success: true;
+  data: {
+    token: string;
+    user: AuthUser;
+  };
+}
+
+export interface AuthErrorResponse {
+  success: false;
+  error: string;
+}
+
+export type AuthResponse = AuthSuccessResponse | AuthErrorResponse;

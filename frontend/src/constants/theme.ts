@@ -1,5 +1,4 @@
 export const API_BASE_URL = 'http://192.168.1.4:3000/api';
-export const WEBSOCKET_URL = 'http://192.168.1.4:3000';
 
 // Modern Apple Emergency Dashboard Color Palette
 export const COLORS = {
@@ -138,3 +137,11 @@ export const SIZES = {
   iconSizeLg: 28,
 };
 
+// Default export for convenience
+export const theme = {
+  colors: COLORS,
+  fonts: FONTS,
+  sizes: SIZES,
+};
+
+export default theme;
