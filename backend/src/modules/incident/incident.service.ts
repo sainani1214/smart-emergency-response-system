@@ -1,5 +1,11 @@
 import { Incident, IIncident, IncidentStatus } from '../../models';
 import { calculatePriorityScore, generateId } from '../../utils/helpers';
+import assignmentService from '../assignment/assignment.service';
+
+type IncidentWithAssignment = {
+  incident: IIncident;
+  latestAssignment: Awaited<ReturnType<typeof assignmentService.getLatestAssignmentByIncident>>;
+};
 
 export class IncidentService {
   /**
@@ -10,7 +16,7 @@ export class IncidentService {
     severity: string;
     location: { lat: number; lng: number; address?: string };
     description: string;
-    reporter: { name: string; contact: string; email?: string };
+    reporter: { name: string; contact: string; email?: string; user_id?: string };
     metadata?: Record<string, any>;
   }): Promise<IIncident> {
     const incident_id = generateId('INC');
@@ -22,7 +28,12 @@ export class IncidentService {
       severity: data.severity,
       location: data.location,
       description: data.description,
-      reporter: data.reporter,
+      reporter: {
+        name: data.reporter.name,
+        contact: data.reporter.contact,
+        email: data.reporter.email,
+        user_id: data.reporter.user_id // Store authenticated user ID
+      },
       priority_score,
       escalation_level: 0,
       status: IncidentStatus.OPEN,
@@ -40,6 +51,21 @@ export class IncidentService {
     return Incident.findOne({ incident_id: incidentId })
       .populate('assigned_resource')
       .exec();
+  }
+
+  async getIncidentWithAssignmentDetails(incidentId: string): Promise<IncidentWithAssignment | null> {
+    const incident = await this.getIncidentById(incidentId);
+
+    if (!incident) {
+      return null;
+    }
+
+    const latestAssignment = await assignmentService.getLatestAssignmentByIncident(incident._id.toString());
+
+    return {
+      incident,
+      latestAssignment,
+    };
   }
 
   /**
@@ -76,6 +102,28 @@ export class IncidentService {
       .exec();
 
     return { incidents, total };
+  }
+
+  /**
+   * Get incidents created by a specific user
+   */
+  async getIncidentsByUser(userId: string): Promise<IIncident[]> {
+    return Incident.find({ 'reporter.user_id': userId })
+      .populate('assigned_resource')
+      .sort({ created_at: -1 })
+      .exec();
+  }
+
+  async getIncidentsByUserWithAssignments(userId: string): Promise<IncidentWithAssignment[]> {
+    const incidents = await this.getIncidentsByUser(userId);
+    const enriched = await Promise.all(
+      incidents.map(async (incident) => ({
+        incident,
+        latestAssignment: await assignmentService.getLatestAssignmentByIncident(incident._id.toString()),
+      }))
+    );
+
+    return enriched;
   }
 
   /**
@@ -171,19 +219,32 @@ export class IncidentService {
     radiusKm: number
   ): Promise<IIncident[]> {
     return Incident.find({
-      location: {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [lng, lat]
-          },
-          $maxDistance: radiusKm * 1000 // Convert to meters
-        }
-      }
+      'location.lat': {
+        $gte: lat - radiusKm / 111,
+        $lte: lat + radiusKm / 111,
+      },
+      'location.lng': {
+        $gte: lng - radiusKm / 111,
+        $lte: lng + radiusKm / 111,
+      },
+      status: {
+        $in: [IncidentStatus.OPEN, IncidentStatus.ASSIGNED, IncidentStatus.IN_PROGRESS],
+      },
     })
       .populate('assigned_resource')
       .limit(20)
+      .sort({ created_at: -1 })
       .exec();
+  }
+
+  async getNearbyIncidentsWithAssignments(lat: number, lng: number, radiusKm: number): Promise<IncidentWithAssignment[]> {
+    const incidents = await this.getIncidentsNearLocation(lat, lng, radiusKm);
+    return Promise.all(
+      incidents.map(async (incident) => ({
+        incident,
+        latestAssignment: await assignmentService.getLatestAssignmentByIncident(incident._id.toString()),
+      }))
+    );
   }
 
   /**
