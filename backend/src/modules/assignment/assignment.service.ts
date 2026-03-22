@@ -17,35 +17,27 @@ interface AssignmentScore {
 }
 
 export class AssignmentService {
-  /**
-   * Get resources eligible for an incident type (public method)
-   */
+  
   async getEligibleResources(incidentType: string): Promise<IResource[]> {
     return this.findEligibleResources(incidentType);
   }
 
-  /**
-   * Smart assignment algorithm - finds the best resource for an incident
-   */
   async findBestResource(incident: IIncident): Promise<{
     resource: IResource;
     score: number;
     distance: number;
     eta: number;
   } | null> {
-    // Get resources that can handle this incident type
     const availableResources = await this.findEligibleResources(incident.type);
 
     if (availableResources.length === 0) {
       return null;
     }
 
-    // Score each resource
     const scores = await Promise.all(
       availableResources.map(resource => this.calculateAssignmentScore(incident, resource))
     );
 
-    // Sort by score (highest first)
     scores.sort((a, b) => b.score - a.score);
 
     const best = scores[0];
@@ -65,7 +57,6 @@ export class AssignmentService {
     incident: IIncident,
     resource: IResource
   ): Promise<AssignmentScore> {
-    // Calculate distance
     const distance = calculateDistance(
       incident.location.lat,
       incident.location.lng,
@@ -75,25 +66,17 @@ export class AssignmentService {
 
     const eta = calculateETA(distance);
 
-    // Factor 1: Distance (35% weight) - Closer is better
-    const maxDistance = 50; // Max realistic distance in km
+    const maxDistance = 50;
     const normalizedDistance = normalize(distance, 0, maxDistance);
     const distanceScore = (1 - normalizedDistance) * 0.35;
 
-    // Factor 2: Availability (25% weight) - More capacity is better
     const capacityUtilization = resource.capacity.current / resource.capacity.max;
     const availabilityScore = (1 - capacityUtilization) * 0.25;
 
-    // Factor 3: Type Match (20% weight) - Perfect match gets full score
     const typeMatchScore = this.getTypeMatchScore(incident.type, resource.type) * 0.20;
-
-    // Factor 4: Workload Distribution (15% weight) - Less loaded resources preferred
     const workloadScore = await this.calculateWorkloadScore(resource) * 0.15;
-
-    // Factor 5: Priority Bonus (5% weight) - Critical incidents get slight boost
     const priorityScore = normalize(incident.priority_score, 0, 100) * 0.05;
 
-    // Total score
     const totalScore = 
       distanceScore + 
       availabilityScore + 
@@ -129,7 +112,7 @@ export class AssignmentService {
     };
 
     const matches = perfectMatches[incidentType] || [];
-    return matches.includes(resourceType) ? 1.0 : 0.3; // 30% score for non-perfect matches
+    return matches.includes(resourceType) ? 1.0 : 0.3;
   }
 
   /**
@@ -145,7 +128,7 @@ export class AssignmentService {
       status: { $in: [AssignmentStatus.IN_PROGRESS, AssignmentStatus.COMPLETED] }
     });
 
-    // Normalize: 0 assignments = 1.0 score, 10+ assignments = 0.0 score
+    
     return Math.max(0, 1 - (recentAssignments / 10));
   }
 
@@ -182,11 +165,15 @@ export class AssignmentService {
     resourceId: string,
     distance: number,
     eta: number,
-    score: number
+    score: number,
+    responderId?: string,
+    responderUserId?: string
   ): Promise<IAssignment> {
     const assignment = new Assignment({
       incident_id: incidentId,
       resource_id: resourceId,
+      responder_id: responderId,
+      accepted_by: responderUserId,
       distance,
       eta,
       score,
@@ -194,7 +181,7 @@ export class AssignmentService {
     });
 
     await assignment.save();
-    return assignment.populate(['incident_id', 'resource_id']);
+    return assignment.populate(['incident_id', 'resource_id', 'responder_id']);
   }
 
   /**
@@ -211,7 +198,14 @@ export class AssignmentService {
    */
   async getAssignmentsByIncident(incidentId: string): Promise<IAssignment[]> {
     return Assignment.find({ incident_id: incidentId })
-      .populate(['incident_id', 'resource_id'])
+      .populate(['incident_id', 'resource_id', 'responder_id'])
+      .sort({ assigned_at: -1 })
+      .exec();
+  }
+
+  async getLatestAssignmentByIncident(incidentId: string): Promise<IAssignment | null> {
+    return Assignment.findOne({ incident_id: incidentId })
+      .populate(['incident_id', 'resource_id', 'responder_id'])
       .sort({ assigned_at: -1 })
       .exec();
   }
@@ -243,12 +237,16 @@ export class AssignmentService {
    */
   async updateAssignmentStatus(
     assignmentId: string,
-    status: AssignmentStatus
+    status: AssignmentStatus,
+    responderId?: string,
+    responderUserId?: string
   ): Promise<IAssignment | null> {
     const updateData: any = { status };
 
     if (status === AssignmentStatus.ACCEPTED) {
       updateData.accepted_at = new Date();
+      if (responderId) updateData.responder_id = responderId;
+      if (responderUserId) updateData.accepted_by = responderUserId;
     } else if (status === AssignmentStatus.IN_PROGRESS) {
       updateData.started_at = new Date();
     } else if (status === AssignmentStatus.COMPLETED) {
