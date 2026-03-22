@@ -1,5 +1,6 @@
 import { ResourceService } from './resource.service';
 import { ResourceStatus } from '../../models';
+import { responderSeedService } from '../responder/responder.seed';
 
 const resourceService = new ResourceService();
 
@@ -99,6 +100,8 @@ export class ResourceSeedService {
     }
 
     console.log(`🌱 Resource seeding completed: ${totalCreated} resources created`);
+    const responderResult = await responderSeedService.seedRespondersForResources();
+    console.log(`🧑‍🚒 Responder seeding completed: ${responderResult.created} created, ${responderResult.linked} linked`);
   }
 
   /**
@@ -119,7 +122,9 @@ export class ResourceSeedService {
       console.log(`📊 Only ${stats.total} resources found, seeding more...`);
       await this.seedResources();
     } else {
-      console.log(`📊 Sufficient resources available: ${stats.total}`);
+      console.log(`Sufficient resources available: ${stats.total}`);
+      const responderResult = await responderSeedService.seedRespondersForResources();
+      console.log(`Responder sync completed: ${responderResult.created} created, ${responderResult.linked} linked`);
     }
   }
 }

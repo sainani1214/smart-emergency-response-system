@@ -197,6 +197,28 @@ export class ResourceService {
   }
 
   /**
+   * Update resource status
+   */
+  async updateStatus(unitId: string, status: ResourceStatus): Promise<IResource | null> {
+    return Resource.findOneAndUpdate(
+      { unit_id: unitId },
+      { status, updated_at: new Date() },
+      { new: true }
+    ).exec();
+  }
+
+  /**
+   * Update resource location
+   */
+  async updateLocation(unitId: string, location: { lat: number; lng: number }): Promise<IResource | null> {
+    return Resource.findOneAndUpdate(
+      { unit_id: unitId },
+      { location, updated_at: new Date() },
+      { new: true }
+    ).exec();
+  }
+
+  /**
    * Get resource statistics
    */
   async getStatistics(): Promise<{
