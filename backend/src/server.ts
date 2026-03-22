@@ -64,7 +64,7 @@ function startSimulationService() {
   if (process.env.ENABLE_SIMULATION === 'true') {
     simulationService.start();
   } else {
-    console.log('🎭 Simulation service disabled (set ENABLE_SIMULATION=true to enable)');
+    console.log('Simulation service disabled (set ENABLE_SIMULATION=true to enable)');
   }
 }
 

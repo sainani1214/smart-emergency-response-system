@@ -8,7 +8,9 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "lint": "tsc --noEmit",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup:responders": "ts-node scripts/setup-responders.ts",
+    "seed:resources": "ts-node scripts/seed-resources.ts"
   },
   "keywords": [
     "emergency",
@@ -21,12 +23,18 @@
   "license": "ISC",
   "dependencies": {
     "@fastify/cors": "^10.0.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/uuid": "^10.0.0",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.3.1",
     "fastify": "^5.8.2",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.8.4",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.14.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.0"

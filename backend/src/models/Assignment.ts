@@ -12,16 +12,18 @@ export enum AssignmentStatus {
 export interface IAssignment extends Document {
   incident_id: mongoose.Types.ObjectId;
   resource_id: mongoose.Types.ObjectId;
+  responder_id?: mongoose.Types.ObjectId; 
   assigned_at: Date;
   accepted_at?: Date;
+  accepted_by?: string; 
   started_at?: Date;
   completed_at?: Date;
   cancelled_at?: Date;
   status: AssignmentStatus;
-  distance: number; // in kilometers
-  eta: number; // in minutes
-  actual_response_time?: number; // in minutes
-  score: number; // assignment optimization score
+  distance: number;
+  eta: number; 
+  actual_response_time?: number; 
+  score: number; 
   notes?: string;
   metadata?: Record<string, any>;
 }
@@ -39,6 +41,11 @@ const AssignmentSchema: Schema = new Schema({
     required: true,
     index: true
   },
+  responder_id: {
+    type: Schema.Types.ObjectId,
+    ref: 'Responder',
+    index: true
+  },
   assigned_at: {
     type: Date,
     default: Date.now,
@@ -46,6 +53,9 @@ const AssignmentSchema: Schema = new Schema({
   },
   accepted_at: {
     type: Date
+  },
+  accepted_by: {
+    type: String
   },
   started_at: {
     type: Date

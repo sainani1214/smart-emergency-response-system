@@ -24,6 +24,11 @@ export enum SocketEvent {
   ASSIGNMENT_COMPLETED = 'assignment:completed',
   ASSIGNMENT_CANCELLED = 'assignment:cancelled',
 
+  // Tracking events
+  TRACKING_POSITION_UPDATE = 'tracking:position_update',
+  TRACKING_STARTED = 'tracking:started',
+  TRACKING_STOPPED = 'tracking:stopped',
+
   // Notification events
   NOTIFICATION = 'notification',
   

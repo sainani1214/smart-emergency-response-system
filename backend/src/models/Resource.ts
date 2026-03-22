@@ -31,7 +31,9 @@ export interface IResource extends Document {
   status: ResourceStatus;
   location: IResourceLocation;
   capacity: ICapacity;
-  assigned_to?: mongoose.Types.ObjectId;
+  assigned_to?: mongoose.Types.ObjectId; // Incident assigned to
+  assigned_responder_id?: mongoose.Types.ObjectId; // Responder operating this resource
+  operator_name?: string; // Display name of current operator
   skills: string[];
   last_updated: Date;
   crew_size?: number;
@@ -75,6 +77,14 @@ const ResourceSchema: Schema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'Incident',
     index: true
+  },
+  assigned_responder_id: {
+    type: Schema.Types.ObjectId,
+    ref: 'Responder',
+    index: true
+  },
+  operator_name: {
+    type: String
   },
   skills: {
     type: [String],

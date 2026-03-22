@@ -33,6 +33,7 @@ export interface IReporter {
   name: string;
   contact: string;
   email?: string;
+  user_id?: string;
 }
 
 export interface IIncident extends Document {
@@ -88,7 +89,8 @@ const IncidentSchema: Schema = new Schema({
   reporter: {
     name: { type: String, required: true },
     contact: { type: String, required: true },
-    email: { type: String }
+    email: { type: String },
+    user_id: { type: String, index: true }
   },
   status: {
     type: String,
@@ -135,6 +137,7 @@ const IncidentSchema: Schema = new Schema({
 IncidentSchema.index({ status: 1, priority_score: -1 });
 IncidentSchema.index({ status: 1, created_at: -1 });
 IncidentSchema.index({ type: 1, status: 1 });
+IncidentSchema.index({ 'reporter.user_id': 1, created_at: -1 });
 
 // Update updated_at before save
 IncidentSchema.pre('save', function(this: IIncident) {
