@@ -229,30 +229,40 @@ export class NotificationService {
   }
 
   /**
-   * Get notifications for a user
+   * Get notifications for a user with flexible filters
    */
-  async getNotifications(
-    recipient: string,
-    filters: {
-      status?: NotificationStatus;
-      unreadOnly?: boolean;
-      limit?: number;
-    } = {}
-  ): Promise<INotification[]> {
-    const query: any = { recipient };
+  async getNotifications(filters: {
+    recipient?: string;
+    type?: NotificationType;
+    channel?: NotificationChannel;
+    priority?: NotificationPriority;
+    status?: NotificationStatus;
+    unread?: boolean;
+    limit?: number;
+    skip?: number;
+  } = {}): Promise<INotification[]> {
+    const query: any = {};
     
-    if (filters.status) {
-      query.status = filters.status;
-    }
-    
-    if (filters.unreadOnly) {
-      query.status = { $ne: NotificationStatus.READ };
-    }
+    if (filters.recipient) query.recipient = filters.recipient;
+    if (filters.type) query.type = filters.type;
+    if (filters.channel) query.channel = filters.channel;
+    if (filters.priority) query.priority = filters.priority;
+    if (filters.status) query.status = filters.status;
+    if (filters.unread) query.status = { $ne: NotificationStatus.READ };
 
     return Notification.find(query)
       .sort({ created_at: -1 })
       .limit(filters.limit || 50)
+      .skip(filters.skip || 0)
       .exec();
+  }
+
+  /**
+   * Delete notification
+   */
+  async deleteNotification(id: string): Promise<boolean> {
+    const result = await Notification.findByIdAndDelete(id);
+    return !!result;
   }
 
   /**
