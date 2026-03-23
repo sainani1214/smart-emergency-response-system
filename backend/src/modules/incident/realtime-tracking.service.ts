@@ -137,9 +137,9 @@ export class RealtimeTrackingService {
       console.log(`[RealtimeTracking] Updating incident ${incidentId} to resolved status`);
       incidentService.updateIncidentStatus(incidentId, 'resolved' as any)
         .then(async (incident) => {
-          if (incident?.assigned_resource_id) {
-            console.log(`[RealtimeTracking] Releasing resource ${incident.assigned_resource_id}`);
-            await resourceService.releaseFromIncident(incident.assigned_resource_id.toString());
+          if (incident?.assigned_resource) {
+            console.log(`[RealtimeTracking] Releasing resource ${incident.assigned_resource}`);
+            await resourceService.releaseFromIncident(incident.assigned_resource.toString());
           }
         })
         .catch(console.error);
