@@ -24,6 +24,7 @@ interface RealtimePosition {
   lat: number;
   lng: number;
   timestamp: string;
+  status?: string;
 }
 
 interface MapPoint {
@@ -37,6 +38,9 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
   const [tracking, setTracking] = useState<EmergencySimulationStatus | null>(null);
   const [realtimePosition, setRealtimePosition] = useState<RealtimePosition | null>(null);
   const [displayPosition, setDisplayPosition] = useState<MapPoint | null>(null);
+  const [smoothPosition, setSmoothPosition] = useState<MapPoint | null>(null);
+  const [routeHistory, setRouteHistory] = useState<MapPoint[]>([]);
+  const [arrivalState, setArrivalState] = useState<'en_route' | 'arrived'>('en_route');
   const [markerHeading, setMarkerHeading] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -105,7 +109,7 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
     }) => {
       if (update.incidentId === incidentId) {
         console.log('[LiveTracking] Realtime position update:', update);
-        setRealtimePosition(update.position);
+        setRealtimePosition({ ...update.position, status: update.status });
 
         const nextPoint = { lat: update.position.lat, lng: update.position.lng };
         const previousPoint = lastRealtimePositionRef.current;
@@ -114,6 +118,44 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
         }
         lastRealtimePositionRef.current = nextPoint;
         setDisplayPosition(nextPoint);
+        
+        // Start smooth position interpolation for better movement feel
+        setSmoothPosition((currentSmooth) => {
+          if (!currentSmooth) {
+            setSmoothPosition(nextPoint);
+            return nextPoint;
+          }
+          
+          // Animate smooth movement over 800ms
+          let steps = 0;
+          const maxSteps = 8;
+          const interpolationInterval = setInterval(() => {
+            steps++;
+            const progress = steps / maxSteps;
+            
+            if (progress >= 1) {
+              setSmoothPosition(nextPoint);
+              clearInterval(interpolationInterval);
+              return;
+            }
+            
+            const interpolated = {
+              lat: currentSmooth.lat + (nextPoint.lat - currentSmooth.lat) * progress,
+              lng: currentSmooth.lng + (nextPoint.lng - currentSmooth.lng) * progress,
+            };
+            setSmoothPosition(interpolated);
+          }, 100); // Update every 100ms for smooth animation
+          
+          return currentSmooth;
+        });
+        setRouteHistory((current) => {
+          const previous = current[current.length - 1];
+          if (previous && previous.lat === nextPoint.lat && previous.lng === nextPoint.lng) {
+            return current;
+          }
+          return [...current.slice(-40), nextPoint]; // Increased from 24 to 40 points for longer trail
+        });
+        setArrivalState(update.status === 'arrived' || update.etaMinutes === 0 ? 'arrived' : 'en_route');
         Animated.sequence([
           Animated.timing(markerScale, {
             toValue: 1.05,
@@ -132,28 +174,48 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
           if (!current) return current;
           return {
             ...current,
+            status: update.status === 'arrived' || update.etaMinutes === 0 ? 'completed' : 'responding',
             assignedResponder: current.assignedResponder ? {
               ...current.assignedResponder,
+              location: {
+                ...current.assignedResponder.location,
+                lat: update.position.lat,
+                lng: update.position.lng,
+              },
               responseTimeEstimate: update.etaMinutes,
             } : undefined,
+            trackingUpdates: [
+              ...current.trackingUpdates.slice(-10),
+              {
+                responderId: update.responderId,
+                location: {
+                  lat: update.position.lat,
+                  lng: update.position.lng,
+                  address: update.status === 'arrived' ? 'Responder arrived at the incident' : 'Responder is actively moving toward you',
+                },
+                timestamp: update.position.timestamp,
+                distanceToUser: update.distanceRemaining,
+                estimatedArrival: update.etaMinutes,
+              },
+            ],
           };
         });
 
-        // Animate map to show both positions
-        if (mapRef.current && incident) {
+        // Animate map to show both positions with smoother tracking
+        if (mapRef.current && incident && update.status !== 'arrived') {
           const userLat = incident.incident.location.lat;
           const userLng = incident.incident.location.lng;
           const midLat = (update.position.lat + userLat) / 2;
           const midLng = (update.position.lng + userLng) / 2;
-          const latDelta = Math.abs(update.position.lat - userLat) * 2.5;
-          const lngDelta = Math.abs(update.position.lng - userLng) * 2.5;
+          const latDelta = Math.abs(update.position.lat - userLat) * 1.8; // Reduced from 2.5 for closer tracking
+          const lngDelta = Math.abs(update.position.lng - userLng) * 1.8;
 
           mapRef.current.animateToRegion({
             latitude: midLat,
             longitude: midLng,
-            latitudeDelta: Math.max(0.02, latDelta),
-            longitudeDelta: Math.max(0.02, lngDelta),
-          }, 1000);
+            latitudeDelta: Math.max(0.015, latDelta), // Reduced min delta for closer view
+            longitudeDelta: Math.max(0.015, lngDelta),
+          }, 800); // Reduced from 1000ms for quicker response
         }
       }
     };
@@ -164,7 +226,7 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
     const interval = hasSimulationId && simulationId
       ? setInterval(() => {
           simulationAPI.getStatus(simulationId).then(setTracking).catch(() => undefined);
-        }, 2000)
+        }, 1000) // Reduced from 2000ms to 1000ms for quicker movement updates
       : null;
 
     let estimatedInterval: ReturnType<typeof setInterval> | null = null;
@@ -177,7 +239,7 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
 
           return advanceEstimatedTracking(current);
         });
-      }, 7000);
+      }, 5000); // Reduced from 7000ms to 5000ms for more frequent updates
     }
 
     return () => {
@@ -216,6 +278,7 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
       };
       setDisplayPosition(fallbackPoint);
       lastRealtimePositionRef.current = fallbackPoint;
+      setRouteHistory((current) => (current.length ? current : [fallbackPoint]));
       return;
     }
 
@@ -226,8 +289,32 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
       };
       setDisplayPosition(fallbackPoint);
       lastRealtimePositionRef.current = fallbackPoint;
+      setRouteHistory((current) => (current.length ? current : [fallbackPoint]));
     }
   }, [latestTrackingPoint, realtimePosition, tracking]);
+
+  useEffect(() => {
+    if (!tracking || !incident) {
+      return;
+    }
+
+    if (tracking.status === 'completed' || incident.incident.status === 'resolved' || incident.incident.status === 'closed') {
+      setArrivalState('arrived');
+      const incidentPoint = {
+        lat: userLocationRef(incident).lat,
+        lng: userLocationRef(incident).lng,
+      };
+      setDisplayPosition(incidentPoint);
+      setRouteHistory((current) => {
+        const history = current.length ? current : [incidentPoint];
+        const last = history[history.length - 1];
+        if (last.lat === incidentPoint.lat && last.lng === incidentPoint.lng) {
+          return history;
+        }
+        return [...history.slice(-24), incidentPoint];
+      });
+    }
+  }, [incident, tracking]);
 
   if (loading) {
     return (
@@ -257,7 +344,7 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
     );
   }
 
-  const responderLocation = displayPosition || realtimePosition || latestTrackingPoint?.location || tracking?.assignedResponder?.location;
+  const responderLocation = smoothPosition || displayPosition || realtimePosition || latestTrackingPoint?.location || tracking?.assignedResponder?.location;
   const userLocation = tracking?.userLocation || {
     lat: incident.incident.location.lat,
     lng: incident.incident.location.lng,
@@ -268,12 +355,22 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
   const hasLiveTracking = Boolean(tracking);
   const activeTracking = tracking;
   const queueCount = tracking?.nearestResponders.length ?? (acceptedResponder || assignedResource ? 1 : 0);
+  const assignedResponderName = acceptedResponder?.name || tracking?.assignedResponder?.name || assignedResource?.unit_id || 'Assigning...';
+  const assignedResponderType = acceptedResponder?.responder_type || tracking?.assignedResponder?.type || assignedResource?.type;
   
   // Get ETA - prioritize real-time updates, then assignment, then tracking
   const etaMinutes = tracking?.assignedResponder?.responseTimeEstimate 
     ?? latestTrackingPoint?.estimatedArrival 
     ?? incident.latestAssignment?.eta;
-  const etaLabel = etaMinutes ? `${etaMinutes} min` : '0 min';
+  const isCompleted = arrivalState === 'arrived' || tracking?.status === 'completed' || incident.incident.status === 'resolved' || incident.incident.status === 'closed';
+  const etaLabel = isCompleted ? 'Arrived' : etaMinutes ? `${etaMinutes} min` : 'Awaiting';
+  const traveledCoordinates = routeHistory.map((point) => ({ latitude: point.lat, longitude: point.lng }));
+  const remainingCoordinates = responderLocation
+    ? [
+        { latitude: responderLocation.lat, longitude: responderLocation.lng },
+        { latitude: userLocation.lat, longitude: userLocation.lng },
+      ]
+    : [];
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -324,10 +421,10 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
           <Text style={styles.cardSubtitle}>Auto-assigned resource based on proximity and availability.</Text>
           <View style={[styles.resourceRow, (acceptedResponder || tracking?.assignedResponder) && styles.resourceRowActive]}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.resourceName}>{acceptedResponder?.name || tracking?.assignedResponder?.name || 'Assigning...'}</Text>
+              <Text style={styles.resourceName}>{assignedResponderName}</Text>
               <Text style={styles.resourceMeta}>
-                {acceptedResponder?.responder_type
-                  ? formatLabel(acceptedResponder.responder_type)
+                {assignedResponderType
+                  ? formatLabel(String(assignedResponderType))
                   : assignedResource?.type
                     ? `${formatLabel(assignedResource.type)} unit`
                     : 'Finding nearest responder'}
@@ -336,7 +433,7 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
             </View>
             <View style={[styles.resourceBadge, (acceptedResponder || tracking?.assignedResponder) && styles.resourceBadgeActive]}>
               <Text style={[styles.resourceBadgeText, (acceptedResponder || tracking?.assignedResponder) && styles.resourceBadgeTextActive]}>
-                {acceptedResponder || tracking?.assignedResponder ? 'Responding' : 'Pending'}
+                {isCompleted ? 'Arrived' : acceptedResponder || tracking?.assignedResponder ? 'Responding' : 'Pending'}
               </Text>
             </View>
           </View>
@@ -353,67 +450,70 @@ export default function LiveTrackingScreen({ navigation, route }: Props) {
               longitudeDelta: 0.04,
             }}
           >
+            {/* User incident marker */}
             <Marker
               coordinate={{ latitude: userLocation.lat, longitude: userLocation.lng }}
               title="Incident location"
               description={userLocation.address}
               pinColor={COLORS.primary}
             />
-            {(tracking?.nearestResponders ?? []).map((responder) => {
-              // Don't show static marker for assigned responder if we have real-time position
-              if (realtimePosition && tracking?.assignedResponder?.id === responder.id) {
-                return null;
-              }
-              return (
-                <Marker
-                  key={responder.id}
-                  coordinate={{ latitude: responder.location.lat, longitude: responder.location.lng }}
-                  title={responder.name}
-                  description={`${responder.type} · ${responder.responseTimeEstimate} min`}
-                  pinColor={tracking?.assignedResponder?.id === responder.id ? COLORS.success : COLORS.secondary}
-                />
-              );
-            })}
-            {realtimePosition && responderLocation ? (
+            
+            {/* Single responder marker - prioritize real-time position */}
+            {responderLocation ? (
               <Marker
                 coordinate={{ latitude: responderLocation.lat, longitude: responderLocation.lng }}
-                title={tracking?.assignedResponder?.name || 'Responder'}
-                description="Live position"
+                title={tracking?.assignedResponder?.name || assignedResponderName}
+                description={realtimePosition ? "Live position" : "Responder location"}
                 anchor={{ x: 0.5, y: 0.5 }}
-                flat
+                flat={!!realtimePosition}
+                pinColor={COLORS.success}
               >
-                <Animated.View
-                  style={[
-                    styles.liveMarker,
-                    {
-                      transform: [
-                        { rotate: `${markerHeading}deg` },
-                        { scale: markerScale },
-                      ],
-                    },
-                  ]}
-                >
-                  <View style={styles.liveMarkerShadow} />
-                  <View style={styles.liveMarkerGlow} />
-                  <View style={styles.liveMarkerBody}>
-                    <View style={styles.liveMarkerCabin} />
-                    <View style={styles.liveMarkerLightLeft} />
-                    <View style={styles.liveMarkerLightRight} />
-                  </View>
-                </Animated.View>
+                {realtimePosition ? (
+                  <Animated.View
+                    style={[
+                      styles.liveMarker,
+                      {
+                        transform: [
+                          { rotate: `${markerHeading}deg` },
+                          { scale: markerScale },
+                        ],
+                      },
+                    ]}
+                  >
+                    <View style={styles.liveMarkerShadow} />
+                    <View style={styles.liveMarkerGlow} />
+                    <View style={styles.liveMarkerBody}>
+                      <View style={styles.liveMarkerCabin} />
+                      <View style={styles.liveMarkerLightLeft} />
+                      <View style={styles.liveMarkerLightRight} />
+                    </View>
+                  </Animated.View>
+                ) : null}
               </Marker>
             ) : null}
-            {responderLocation ? (
+            
+            {/* Single tracking line - black and thick */}
+            {responderLocation && !isCompleted ? (
               <Polyline
                 coordinates={[
                   { latitude: responderLocation.lat, longitude: responderLocation.lng },
                   { latitude: userLocation.lat, longitude: userLocation.lng },
                 ]}
-                strokeColor="#1F2937"
+                strokeColor="rgba(0, 0, 0, 0.9)"
+                strokeWidth={4}
+                lineCap="round"
+                lineJoin="round"
+              />
+            ) : null}
+            
+            {/* Path traveled - if available */}
+            {traveledCoordinates.length >= 2 ? (
+              <Polyline
+                coordinates={traveledCoordinates}
+                strokeColor="rgba(34, 197, 94, 0.6)"
                 strokeWidth={2}
                 lineCap="round"
                 lineJoin="round"
-                lineDashPattern={[]}
               />
             ) : null}
           </MapView>
@@ -552,12 +652,20 @@ function getIncidentSubtitle(incident: IncidentWithAssignment) {
   return 'This incident detail view shows estimated ETA, responder positioning, and the latest assignment information even without an active simulation session.';
 }
 
+function userLocationRef(incident: IncidentWithAssignment) {
+  return {
+    lat: incident.incident.location.lat,
+    lng: incident.incident.location.lng,
+  };
+}
+
 function statusLabel(status: string) {
   switch (status) {
     case 'open':
       return 'Reported and waiting for assignment';
     case 'assigned':
       return 'A responder has accepted the case';
+    case 'in-progress':
     case 'in_progress':
       return 'Active response is underway';
     case 'resolved':

@@ -9,9 +9,9 @@ export class ResourceSeedService {
    * Seed initial resources for the emergency response system
    */
   async seedResources(): Promise<void> {
-    console.log('🌱 Seeding emergency resources...');
+    console.log('Seeding emergency resources...');
 
-    const baseLocation = { lat: 18.5204, lng: 73.8567 }; // Pune coordinates
+    const baseLocation = { lat: 18.5204, lng: 73.8567 }; 
 
     const resourceTypes = [
       // Ambulances
@@ -92,16 +92,16 @@ export class ResourceSeedService {
           });
 
           totalCreated++;
-          console.log(`✅ Created ${resourceType.type} #${i + 1}`);
+          console.log(`Created ${resourceType.type} #${i + 1}`);
         } catch (error) {
-          console.error(`❌ Failed to create ${resourceType.type} #${i + 1}:`, error);
+          console.error(`Failed to create ${resourceType.type} #${i + 1}:`, error);
         }
       }
     }
 
-    console.log(`🌱 Resource seeding completed: ${totalCreated} resources created`);
+    console.log(` Resource seeding completed: ${totalCreated} resources created`);
     const responderResult = await responderSeedService.seedRespondersForResources();
-    console.log(`🧑‍🚒 Responder seeding completed: ${responderResult.created} created, ${responderResult.linked} linked`);
+    console.log(`Responder seeding completed: ${responderResult.created} created, ${responderResult.linked} linked`);
   }
 
   /**
@@ -109,7 +109,7 @@ export class ResourceSeedService {
    */
   async clearSeededResources(): Promise<void> {
     const result = await resourceService.deleteResources({ 'metadata.seeded': true });
-    console.log(`🧹 Cleared ${result.deletedCount} seeded resources`);
+    console.log(` Cleared ${result.deletedCount} seeded resources`);
   }
 
   /**
@@ -119,7 +119,7 @@ export class ResourceSeedService {
     const stats = await resourceService.getStatistics();
     
     if (stats.total < 10) {
-      console.log(`📊 Only ${stats.total} resources found, seeding more...`);
+      console.log(`Only ${stats.total} resources found, seeding more...`);
       await this.seedResources();
     } else {
       console.log(`Sufficient resources available: ${stats.total}`);

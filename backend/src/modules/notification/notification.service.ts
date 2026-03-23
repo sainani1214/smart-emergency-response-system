@@ -19,6 +19,11 @@ interface NotificationPayload {
   related_resource?: string;
 }
 
+interface UserNotificationRecipient {
+  user_id?: string;
+  email?: string;
+}
+
 export class NotificationService {
   /**
    * Send notification
@@ -212,6 +217,52 @@ export class NotificationService {
     );
 
     await Promise.all(promises);
+  }
+
+  /**
+   * Notify the reporting user about incident lifecycle updates
+   */
+  async notifyUserIncidentUpdate(
+    incidentData: any,
+    update: {
+      type: NotificationType;
+      title: string;
+      message: string;
+      priority?: NotificationPriority;
+      data?: Record<string, any>;
+    }
+  ): Promise<void> {
+    const recipients = this.getUserRecipients(incidentData);
+    if (!recipients.length) {
+      return;
+    }
+
+    await Promise.all(
+      recipients.map((recipient) =>
+        this.sendNotification({
+          type: update.type,
+          recipient,
+          channel: NotificationChannel.IN_APP,
+          priority: update.priority ?? NotificationPriority.MEDIUM,
+          title: update.title,
+          message: update.message,
+          data: {
+            incidentId: incidentData.incident_id,
+            ...(update.data || {}),
+          },
+          related_incident: incidentData._id?.toString?.() || incidentData._id,
+        })
+      )
+    );
+  }
+
+  private getUserRecipients(incidentData: any): string[] {
+    const reporter: UserNotificationRecipient | undefined = incidentData?.reporter;
+    const candidates = [reporter?.user_id, reporter?.email]
+      .filter((value): value is string => Boolean(value && String(value).trim()))
+      .map((value) => String(value).trim());
+
+    return [...new Set(candidates)];
   }
 
   /**

@@ -114,9 +114,6 @@ export default function MyIncidentsScreen({ navigation, onLogout }: Props) {
                 <Pressable style={styles.headerButtonSecondary} onPress={() => navigation.navigate('NearbyIncidents')}>
                   <Text style={styles.headerButtonSecondaryText}>View nearby</Text>
                 </Pressable>
-                <Pressable style={styles.headerGhostButton} onPress={() => navigation.navigate('Settings')}>
-                  <Text style={styles.headerGhostButtonText}>Settings</Text>
-                </Pressable>
               </View>
             </View>
           </>

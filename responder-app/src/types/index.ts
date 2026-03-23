@@ -30,3 +30,20 @@ export interface Assignment {
   eta?: number;
   score?: number;
 }
+
+export interface AppNotification {
+  _id: string;
+  type: 'incident_created' | 'incident_assigned' | 'incident_escalated' | 'incident_resolved' | 'resource_assigned' | 'resource_status_changed' | 'alert' | 'system';
+  recipient: string;
+  channel: 'push' | 'sms' | 'email' | 'in_app';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  title: string;
+  message: string;
+  status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
+  created_at: string;
+  read_at?: string;
+  related_incident?: string;
+  related_resource?: string;
+  data?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}

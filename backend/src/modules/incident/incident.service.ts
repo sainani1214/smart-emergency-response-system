@@ -166,7 +166,7 @@ export class IncidentService {
       { new: true }
     ).populate('assigned_resource').exec();
     
-    console.log(`📊 Update result:`, result ? 'Found and updated' : 'Not found');
+    console.log(`Update result:`, result ? 'Found and updated' : 'Not found');
     
     return result;
   }

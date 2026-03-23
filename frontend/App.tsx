@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import CreateIncidentScreen from './src/screens/CreateIncidentScreen';
 
 import MyIncidentsScreen from './src/screens/MyIncidentsScreen';
 import NearbyIncidentsScreen from './src/screens/NearbyIncidentsScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import { COLORS } from './src/constants/theme';
 import LiveTrackingScreen from './src/screens/LiveTrackingScreen';
+import { notificationsAPI } from './src/services/api';
 import { storage } from './src/services/storage';
 import { tokenStore } from './src/services/tokenStore';
 import './src/services/storageDebug'; // Load debug utilities
@@ -22,6 +25,7 @@ export type UserAppStackParamList = {
   ReportIncident: undefined;
   MyReports: undefined;
   NearbyIncidents: undefined;
+  Notifications: undefined;
   Settings: undefined;
   LiveTracking: {
     incidentId: string;
@@ -30,6 +34,47 @@ export type UserAppStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<UserAppStackParamList>();
+
+function HeaderNotificationBell({ onPress }: { onPress: () => void }) {
+  const [count, setCount] = useState(0);
+
+  const loadCount = useCallback(async () => {
+    try {
+      const rawUser = await storage.getItem('userData').catch(() => null);
+      if (!rawUser) {
+        setCount(0);
+        return;
+      }
+
+      const user = JSON.parse(rawUser);
+      const recipient = user.id || user.email;
+      if (!recipient) {
+        setCount(0);
+        return;
+      }
+
+      const unread = await notificationsAPI.unreadCount(recipient);
+      setCount(unread);
+    } catch {
+      setCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCount();
+  }, [loadCount]);
+
+  return (
+    <Pressable style={styles.bellButton} onPress={onPress} hitSlop={10}>
+      <Text style={styles.bellIcon}>🔔</Text>
+      {count > 0 ? (
+        <View style={styles.bellBadge}>
+          <Text style={styles.bellBadgeText}>{count > 99 ? '99+' : count}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -101,6 +146,10 @@ export default function App() {
     return null;
   }
 
+  const authenticatedHeaderOptions = ({ navigation }: { navigation: { navigate: (screen: string) => void } }) => ({
+    headerRight: () => <HeaderNotificationBell onPress={() => navigation.navigate('Notifications')} />,
+  });
+
   return (
     <SafeAreaProvider>
       <NavigationContainer theme={navigationTheme}>
@@ -141,24 +190,42 @@ export default function App() {
             <>
               <Stack.Screen
                 name="ReportIncident"
-                options={{ title: 'Report emergency' }}
+                options={({ navigation }) => ({
+                  title: 'Report emergency',
+                  ...authenticatedHeaderOptions({ navigation }),
+                })}
               >
                 {(props) => <CreateIncidentScreen {...props} onLogout={handleLogout} />}
               </Stack.Screen>
               <Stack.Screen
                 name="MyReports"
-                options={{ title: 'My reports' }}
+                options={({ navigation }) => ({
+                  title: 'My reports',
+                  ...authenticatedHeaderOptions({ navigation }),
+                })}
               >
                 {(props) => <MyIncidentsScreen {...props} onLogout={handleLogout} />}
               </Stack.Screen>
               <Stack.Screen
                 name="NearbyIncidents"
                 component={NearbyIncidentsScreen}
-                options={{ title: 'Nearby incidents' }}
+                options={({ navigation }) => ({
+                  title: 'Nearby incidents',
+                  ...authenticatedHeaderOptions({ navigation }),
+                })}
               />
               <Stack.Screen
+                name="Notifications"
+                options={{ title: 'Notifications' }}
+              >
+                {(props) => <NotificationsScreen {...props} onLogout={handleLogout} />}
+              </Stack.Screen>
+              <Stack.Screen
                 name="Settings"
-                options={{ title: 'Settings' }}
+                options={({ navigation }) => ({
+                  title: 'Settings',
+                  ...authenticatedHeaderOptions({ navigation }),
+                })}
               >
                 {(props) => <SettingsScreen {...props} onLogout={handleLogout} />}
               </Stack.Screen>
@@ -174,3 +241,37 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  bellButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    position: 'relative',
+  },
+  bellIcon: {
+    fontSize: 18,
+  },
+  bellBadge: {
+    position: 'absolute',
+    right: -3,
+    top: -3,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: {
+    color: COLORS.textInverse,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+});

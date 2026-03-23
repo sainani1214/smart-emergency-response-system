@@ -176,3 +176,34 @@ export interface AuthErrorResponse {
 }
 
 export type AuthResponse = AuthSuccessResponse | AuthErrorResponse;
+
+export type NotificationTypeValue =
+  | 'incident_created'
+  | 'incident_assigned'
+  | 'incident_escalated'
+  | 'incident_resolved'
+  | 'resource_assigned'
+  | 'resource_status_changed'
+  | 'alert'
+  | 'system';
+
+export type NotificationPriorityValue = 'low' | 'medium' | 'high' | 'urgent';
+
+export type NotificationStatusValue = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
+
+export interface AppNotification {
+  _id: string;
+  type: NotificationTypeValue;
+  recipient: string;
+  channel: 'push' | 'sms' | 'email' | 'in_app';
+  priority: NotificationPriorityValue;
+  title: string;
+  message: string;
+  status: NotificationStatusValue;
+  created_at: string;
+  read_at?: string;
+  related_incident?: string;
+  related_resource?: string;
+  data?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}

@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { assignmentsAPI, incidentsAPI } from '../services/api';
+import { assignmentsAPI, incidentsAPI, notificationsAPI } from '../services/api';
 import { responderSocketService } from '../services/socket';
 import { COLORS, SIZES } from '../constants/theme';
-import { Assignment, Incident, ResponderAssignmentStatus } from '../types';
+import { AppNotification, Assignment, Incident, ResponderAssignmentStatus } from '../types';
+import { storage } from '../services/storage';
 
 export default function ResponderDashboard() {
   const [mode, setMode] = useState<'queue' | 'map'>('queue');
@@ -27,11 +28,27 @@ export default function ResponderDashboard() {
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [eligibleUnitsCount, setEligibleUnitsCount] = useState<number | null>(null);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notificationOpen, setNotificationOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
       const openIncidents = await incidentsAPI.listOpen();
       setIncidents(openIncidents);
+
+      try {
+        const rawResponder = await storage.getItem('responderData');
+        if (rawResponder) {
+          const responder = JSON.parse(rawResponder);
+          const recipient = responder.id || responder.email;
+          if (recipient) {
+            const items = await notificationsAPI.list({ recipient, limit: 50 });
+            setNotifications([...items].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+          }
+        }
+      } catch {
+        setNotifications([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -89,9 +106,47 @@ export default function ResponderDashboard() {
     return assignments.filter((assignment) => !['completed', 'cancelled', 'rejected'].includes(assignment.status));
   }, [assignments]);
 
+  const unreadCount = useMemo(() => notifications.filter((item) => item.status !== 'read').length, [notifications]);
+
   const acceptIncident = async () => {
     if (!selectedIncident) return;
     try {
+      const existingAssignments = await assignmentsAPI.listByIncident(selectedIncident.incident_id);
+      const claimableAssignment = existingAssignments.find((assignment) => {
+        const assignmentIncidentId =
+          typeof assignment.incident_id === 'string'
+            ? assignment.incident_id
+            : assignment.incident_id?.incident_id;
+
+        return (
+          assignmentIncidentId === selectedIncident.incident_id &&
+          ['pending', 'assigned', 'accepted', 'in-progress'].includes(assignment.status)
+        );
+      });
+
+      if (claimableAssignment) {
+        const assignmentId = claimableAssignment.assignment_id || claimableAssignment._id;
+        const acceptedAssignment = assignmentId
+          ? await assignmentsAPI.updateStatus(assignmentId, 'en-route')
+          : claimableAssignment;
+
+        setAssignments((current) => {
+          const currentIdSet = new Set(current.map((item) => item.assignment_id || item._id));
+          const acceptedId = acceptedAssignment.assignment_id || acceptedAssignment._id;
+
+          if (acceptedId && currentIdSet.has(acceptedId)) {
+            return current.map((item) =>
+              (item.assignment_id || item._id) === acceptedId ? acceptedAssignment : item
+            );
+          }
+
+          return [acceptedAssignment, ...current];
+        });
+        setIncidents((current) => current.filter((item) => item.incident_id !== selectedIncident.incident_id));
+        setSelectedIncident(null);
+        return;
+      }
+
       // Try smart matching first
       let matchedResourceId = null;
       let assignmentMeta = {};
@@ -124,8 +179,12 @@ export default function ResponderDashboard() {
       }
 
       const assignment = await assignmentsAPI.create(selectedIncident.incident_id, matchedResourceId, assignmentMeta);
+      const assignmentId = assignment.assignment_id || assignment._id;
+      const acceptedAssignment = assignmentId
+        ? await assignmentsAPI.updateStatus(assignmentId, 'en-route')
+        : assignment;
 
-      setAssignments((current) => [assignment, ...current]);
+      setAssignments((current) => [acceptedAssignment, ...current]);
       setIncidents((current) => current.filter((item) => item.incident_id !== selectedIncident.incident_id));
       setSelectedIncident(null);
     } catch (error: any) {
@@ -165,12 +224,22 @@ export default function ResponderDashboard() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />}
       >
         <View style={styles.hero}>
-          <View>
-            <Text style={styles.eyebrow}>RESPONDER CONSOLE</Text>
-            <Text style={styles.heroTitle}>Prioritize, accept, and track live incidents</Text>
-            <Text style={styles.heroSubtitle}>
-              Designed for demos and dispatcher-style workflows with strong visual hierarchy and fast decision points.
-            </Text>
+          <View style={styles.heroHeader}>
+            <View style={styles.heroCopyWrap}>
+              <Text style={styles.eyebrow}>RESPONDER CONSOLE</Text>
+              <Text style={styles.heroTitle}>Prioritize, accept, and track live incidents</Text>
+              <Text style={styles.heroSubtitle}>
+                Designed for demos and dispatcher-style workflows with strong visual hierarchy and fast decision points.
+              </Text>
+            </View>
+            <Pressable style={styles.bellButton} onPress={() => setNotificationOpen(true)}>
+              <Text style={styles.bellIcon}>🔔</Text>
+              {unreadCount > 0 ? (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              ) : null}
+            </Pressable>
           </View>
           <View style={styles.toggleRow}>
             <Pressable style={[styles.toggleButton, mode === 'queue' && styles.toggleButtonActive]} onPress={() => setMode('queue')}>
@@ -258,6 +327,78 @@ export default function ResponderDashboard() {
         )}
       </ScrollView>
 
+      <Modal visible={notificationOpen} transparent animationType="slide" onRequestClose={() => setNotificationOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.notificationSheet}>
+            <View style={styles.notificationSheetHeader}>
+              <View>
+                <Text style={styles.notificationSheetTitle}>Notifications</Text>
+                <Text style={styles.notificationSheetSubtitle}>Responder alerts and live system updates</Text>
+              </View>
+              <Pressable style={styles.closeButton} onPress={() => setNotificationOpen(false)}>
+                <Text style={styles.closeButtonText}>Done</Text>
+              </Pressable>
+            </View>
+            <Pressable
+              style={styles.markAllInlineButton}
+              onPress={async () => {
+                try {
+                  const rawResponder = await storage.getItem('responderData');
+                  if (!rawResponder) return;
+                  const responder = JSON.parse(rawResponder);
+                  const recipient = responder.id || responder.email;
+                  if (!recipient) return;
+                  await notificationsAPI.markAllAsRead(recipient);
+                  setNotifications((current) => current.map((item) => ({ ...item, status: 'read', read_at: item.read_at || new Date().toISOString() })));
+                } catch (error: any) {
+                  Alert.alert('Unable to update notifications', error?.response?.data?.error || error?.message || 'Please try again.');
+                }
+              }}
+            >
+              <Text style={styles.markAllInlineButtonText}>Mark all as read</Text>
+            </Pressable>
+            <ScrollView contentContainerStyle={styles.notificationList}>
+              {notifications.length === 0 ? (
+                <View style={styles.emptyNotificationState}>
+                  <Text style={styles.emptyNotificationEmoji}>🔕</Text>
+                  <Text style={styles.emptyNotificationTitle}>No responder notifications yet</Text>
+                  <Text style={styles.emptyNotificationSubtitle}>Incoming incidents, escalations, and assignment updates will appear here.</Text>
+                </View>
+              ) : (
+                notifications.map((item) => (
+                  <Pressable
+                    key={item._id}
+                    style={[styles.notificationItem, item.status !== 'read' && styles.notificationItemUnread]}
+                    onPress={async () => {
+                      try {
+                        if (item.status !== 'read') {
+                          await notificationsAPI.markAsRead(item._id);
+                          setNotifications((current) => current.map((entry) => entry._id === item._id ? { ...entry, status: 'read', read_at: new Date().toISOString() } : entry));
+                        }
+                      } catch (error: any) {
+                        Alert.alert('Unable to open notification', error?.response?.data?.error || error?.message || 'Please try again.');
+                      }
+                    }}
+                  >
+                    <View style={styles.notificationRow}>
+                      <View style={styles.notificationGlyphWrap}>
+                        <Text style={styles.notificationGlyph}>{getNotificationEmoji(item.type)}</Text>
+                      </View>
+                      <View style={styles.notificationCopy}>
+                        <Text style={styles.notificationTitle}>{item.title}</Text>
+                        <Text style={styles.notificationMeta}>{new Date(item.created_at).toLocaleString()} · {formatLabel(item.priority)}</Text>
+                      </View>
+                      {item.status !== 'read' ? <View style={styles.notificationUnreadDot} /> : null}
+                    </View>
+                    <Text style={styles.notificationMessage}>{item.message}</Text>
+                  </Pressable>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={Boolean(selectedIncident)} transparent animationType="slide" onRequestClose={() => setSelectedIncident(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -320,6 +461,23 @@ function formatAssignmentStatus(value: string) {
   return formatLabel(value);
 }
 
+function getNotificationEmoji(type: AppNotification['type']) {
+  switch (type) {
+    case 'incident_assigned':
+      return '🚑';
+    case 'incident_escalated':
+      return '⚠️';
+    case 'incident_resolved':
+      return '✅';
+    case 'resource_assigned':
+      return '📍';
+    case 'alert':
+      return '🚨';
+    default:
+      return '🔔';
+  }
+}
+
 function getSeverityColor(severity: Incident['severity']) {
   switch (severity) {
     case 'low':
@@ -365,6 +523,15 @@ const styles = StyleSheet.create({
     padding: SIZES.paddingLg,
     gap: 18
   },
+  heroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16
+  },
+  heroCopyWrap: {
+    flex: 1
+  },
   eyebrow: {
     color: COLORS.textMuted,
     fontSize: SIZES.xs,
@@ -383,6 +550,37 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: SIZES.md,
     lineHeight: 22
+  },
+  bellButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: COLORS.border
+  },
+  bellIcon: {
+    fontSize: 20
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -2,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5
+  },
+  bellBadgeText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: '800'
   },
   toggleRow: {
     flexDirection: 'row',
@@ -514,6 +712,132 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'flex-end'
+  },
+  notificationSheet: {
+    backgroundColor: COLORS.backgroundElevated,
+    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    minHeight: '72%',
+    maxHeight: '88%'
+  },
+  notificationSheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  notificationSheetTitle: {
+    color: COLORS.text,
+    fontSize: SIZES.xl,
+    fontWeight: '700'
+  },
+  notificationSheetSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: SIZES.sm,
+    marginTop: 4
+  },
+  closeButton: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10
+  },
+  closeButtonText: {
+    color: COLORS.white,
+    fontWeight: '700',
+    fontSize: SIZES.sm
+  },
+  markAllInlineButton: {
+    backgroundColor: COLORS.badgeBlue,
+    borderRadius: 999,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 14
+  },
+  markAllInlineButtonText: {
+    color: COLORS.white,
+    fontSize: SIZES.sm,
+    fontWeight: '700'
+  },
+  notificationList: {
+    paddingBottom: 24,
+    gap: 12
+  },
+  emptyNotificationState: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radius,
+    padding: SIZES.paddingLg,
+    alignItems: 'center',
+    marginTop: 20
+  },
+  emptyNotificationEmoji: {
+    fontSize: 34,
+    marginBottom: 10
+  },
+  emptyNotificationTitle: {
+    color: COLORS.text,
+    fontSize: SIZES.lg,
+    fontWeight: '700',
+    marginBottom: 8
+  },
+  emptyNotificationSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: SIZES.sm,
+    lineHeight: 20,
+    textAlign: 'center'
+  },
+  notificationItem: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radius,
+    padding: SIZES.padding,
+    borderWidth: 1,
+    borderColor: 'transparent'
+  },
+  notificationItemUnread: {
+    borderColor: 'rgba(37, 99, 235, 0.35)'
+  },
+  notificationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
+  notificationGlyphWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  notificationGlyph: {
+    fontSize: 20
+  },
+  notificationCopy: {
+    flex: 1
+  },
+  notificationTitle: {
+    color: COLORS.text,
+    fontSize: SIZES.md,
+    fontWeight: '700',
+    marginBottom: 4
+  },
+  notificationMeta: {
+    color: COLORS.textMuted,
+    fontSize: SIZES.xs
+  },
+  notificationUnreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.secondary
+  },
+  notificationMessage: {
+    color: COLORS.textSecondary,
+    fontSize: SIZES.sm,
+    lineHeight: 20,
+    marginTop: 12
   },
   modalCard: {
     backgroundColor: COLORS.backgroundElevated,

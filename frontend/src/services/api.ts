@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../constants/theme';
 import {
+  AppNotification,
   AuthResponse,
   EmergencySimulationResponse,
   EmergencySimulationStatus,
@@ -151,6 +152,29 @@ export const authAPI = {
   }): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>('/auth/register/user', payload);
     return response.data;
+  },
+};
+
+export const notificationsAPI = {
+  list: async (params: { recipient: string; unread?: boolean; limit?: number; skip?: number }): Promise<AppNotification[]> => {
+    const response = await api.get<AppNotification[]>('/notifications', { params });
+    return response.data;
+  },
+
+  unreadCount: async (recipient: string): Promise<number> => {
+    const response = await api.get<AppNotification[]>('/notifications', {
+      params: { recipient, unread: true, limit: 100 },
+    });
+    return response.data.length;
+  },
+
+  markAsRead: async (id: string): Promise<AppNotification> => {
+    const response = await api.patch<AppNotification>(`/notifications/${id}/read`);
+    return response.data;
+  },
+
+  markAllAsRead: async (recipient: string): Promise<void> => {
+    await api.patch('/notifications/read-all', null, { params: { recipient } });
   },
 };
 

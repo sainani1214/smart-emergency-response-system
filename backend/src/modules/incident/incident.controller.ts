@@ -34,6 +34,16 @@ export const createIncident = async (request: CreateIncidentRequest & Authentica
       incident,
       ['dispatch']
     );
+
+    await notificationService.notifyUserIncidentUpdate(incident, {
+      type: 'incident_created' as any,
+      title: 'Emergency report submitted',
+      message: `Your report ${incident.incident_id} has been created and is being processed.`,
+      priority: incident.severity === 'critical' ? 'urgent' as any : 'high' as any,
+      data: {
+        status: incident.status,
+      },
+    });
     
     const socketService = (request.server as any).socketService;
     if (socketService) {
@@ -61,6 +71,19 @@ export const createIncident = async (request: CreateIncidentRequest & Authentica
           incident,
           { eta: match.eta, distance: match.distance }
         );
+
+        await notificationService.notifyUserIncidentUpdate(incident, {
+          type: 'incident_assigned' as any,
+          title: 'Responder assigned',
+          message: `${match.resource.unit_id} has been assigned to ${incident.incident_id}. ETA: ${match.eta} min.`,
+          priority: 'high' as any,
+          data: {
+            eta: match.eta,
+            distance: match.distance,
+            resourceUnitId: match.resource.unit_id,
+            resourceType: match.resource.type,
+          },
+        });
         
         if (socketService) {
           socketService.emitIncidentAssigned(incident, match.resource, assignment);

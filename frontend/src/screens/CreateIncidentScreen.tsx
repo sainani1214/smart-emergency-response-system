@@ -124,10 +124,17 @@ export default function CreateIncidentScreen({ navigation, onLogout }: Props) {
         ]
       );
 
-      setFormData((current) => ({
-        ...current,
-        reporterEmail: currentUser?.email || current.reporterEmail,
-      }));
+      setFormData({
+        type: IncidentType.MEDICAL,
+        severity: IncidentSeverity.HIGH,
+        latitude: '18.521',
+        longitude: '73.857',
+        address: '',
+        description: '',
+        reporterName: '',
+        reporterContact: '',
+        reporterEmail: currentUser?.email || '',
+      });
     } catch (error: any) {
       console.error('[CreateIncident] Error submitting:', error);
       

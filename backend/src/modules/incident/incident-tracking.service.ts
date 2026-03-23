@@ -70,14 +70,15 @@ export class IncidentTrackingService {
     const responderLng = assignedResponder?.location?.lng ?? assignedResource?.location?.lng ?? incident.location.lng + 0.012;
     const distanceKm = calculateDistance(incident.location.lat, incident.location.lng, responderLat, responderLng);
     const fallbackEta = Math.max(5, Math.min(10, Math.round(calculateETA(distanceKm) || 7)));
-    const eta = assignment?.eta ?? fallbackEta;
+    const isCompleted = incident.status === 'closed' || incident.status === 'resolved';
+    const eta = isCompleted ? 0 : assignment?.eta ?? fallbackEta;
     const routeSteps = 5;
     const trackingUpdates = Array.from({ length: routeSteps }, (_, index) => {
-      const ratio = (index + 1) / routeSteps;
+      const ratio = isCompleted ? 1 : (index + 1) / routeSteps;
       const lat = interpolate(responderLat, incident.location.lat, ratio);
       const lng = interpolate(responderLng, incident.location.lng, ratio);
-      const remainingDistance = Number((distanceKm * (1 - ratio)).toFixed(2));
-      const remainingEta = Math.max(0, Math.round(eta * (1 - ratio)));
+      const remainingDistance = isCompleted ? 0 : Number((distanceKm * (1 - ratio)).toFixed(2));
+      const remainingEta = isCompleted ? 0 : Math.max(0, Math.round(eta * (1 - ratio)));
 
       return {
         responderId: assignedResponder?.responder_id || assignedResponder?._id?.toString() || assignedResource?._id?.toString() || 'estimated-unit',
@@ -96,12 +97,7 @@ export class IncidentTrackingService {
       success: true,
       incidentId: incident.incident_id,
       mode: 'real-assignment',
-      status:
-        incident.status === 'closed' || incident.status === 'resolved'
-          ? 'completed'
-          : assignedResponder || assignedResource
-            ? 'responding'
-            : 'notifying',
+      status: isCompleted ? 'completed' : assignedResponder || assignedResource ? 'responding' : 'notifying',
       emergencyType: incident.type,
       severity: incident.severity,
       createdAt: incident.created_at,
@@ -116,8 +112,8 @@ export class IncidentTrackingService {
             name: assignedResponder.name,
             type: assignedResponder.responder_type,
             location: {
-              lat: responderLat,
-              lng: responderLng,
+              lat: isCompleted ? incident.location.lat : responderLat,
+              lng: isCompleted ? incident.location.lng : responderLng,
               address: incident.location.address || 'Incident response area',
             },
             status: assignedResponder.status,
@@ -130,8 +126,8 @@ export class IncidentTrackingService {
               name: assignedResource.operator_name || assignedResource.unit_id,
               type: assignedResource.type,
               location: {
-                lat: responderLat,
-                lng: responderLng,
+                lat: isCompleted ? incident.location.lat : responderLat,
+                lng: isCompleted ? incident.location.lng : responderLng,
                 address: incident.location.address || 'Incident response area',
               },
               status: assignedResource.status,

@@ -110,9 +110,16 @@ export const createAssignment = async (request: CreateAssignmentRequest, reply: 
 export const getAssignments = async (request: GetAssignmentsRequest, reply: FastifyReply) => {
   try {
     const query = request.query;
+    
+    if (!query.incidentId) {
+      return reply.code(400).send({ error: 'incidentId is required' });
+    }
+    
     const assignments = await assignmentService.getAssignmentsByIncident(
-      query.incidentId || '',
-    );    return reply.send(assignments);
+      query.incidentId
+    );
+    
+    return reply.send(assignments);
   } catch (error: any) {
     return reply.code(500).send({ error: error.message });
   }
