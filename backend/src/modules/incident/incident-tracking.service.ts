@@ -1,8 +1,8 @@
-import { Responder } from '../../models/Responder';
 import { calculateDistance, calculateETA } from '../../utils/helpers';
 import incidentService from './incident.service';
 import assignmentService from '../assignment/assignment.service';
 import resourceService from '../resource/resource.service';
+import responderService from '../responder/responder.service';
 
 function interpolate(start: number, end: number, ratio: number) {
   return start + (end - start) * ratio;
@@ -46,12 +46,12 @@ export class IncidentTrackingService {
       location: assignedResource.location,
     } : 'None');
 
-    let assignedResponder = assignment?.responder_id?._id
-      ? await Responder.findById(String(assignment.responder_id._id)).exec()
-      : null;
-
-    if (!assignedResponder && assignedResource?.assigned_responder_id) {
-      assignedResponder = await Responder.findById(String(assignedResource.assigned_responder_id)).exec();
+    // Find responder operating this resource
+    let assignedResponder = null;
+    if (assignedResource) {
+      assignedResponder = await responderService.findByResource(
+        assignedResource._id.toString()
+      );
     }
 
     console.log('[IncidentTracking] Assigned responder:', assignedResponder ? {
@@ -123,7 +123,7 @@ export class IncidentTrackingService {
         : assignedResource
           ? {
               id: assignedResource._id.toString(),
-              name: assignedResource.operator_name || assignedResource.unit_id,
+              name: assignedResource.unit_id,
               type: assignedResource.type,
               location: {
                 lat: isCompleted ? incident.location.lat : responderLat,
@@ -139,7 +139,7 @@ export class IncidentTrackingService {
         .filter(Boolean)
         .map((resource) => ({
           id: resource!._id.toString(),
-          name: resource!.operator_name || resource!.unit_id,
+          name: resource!.unit_id,
           type: resource!.type as any,
           location: {
             lat: resource!.location.lat,

@@ -189,7 +189,7 @@ export class AssignmentService {
    */
   async getAssignmentById(id: string): Promise<IAssignment | null> {
     return Assignment.findById(id)
-      .populate(['incident_id', 'resource_id'])
+      .populate(['incident_id', 'resource_id', 'responder_id'])
       .exec();
   }
 
@@ -197,17 +197,69 @@ export class AssignmentService {
    * Get assignments for an incident
    */
   async getAssignmentsByIncident(incidentId: string): Promise<IAssignment[]> {
-    return Assignment.find({ incident_id: incidentId })
-      .populate(['incident_id', 'resource_id', 'responder_id'])
-      .sort({ assigned_at: -1 })
-      .exec();
+    try {
+      console.log('[AssignmentService] getAssignmentsByIncident:', incidentId);
+      
+      // Check if incidentId is a valid ObjectId
+      let query: any;
+      if (/^[0-9a-fA-F]{24}$/.test(incidentId)) {
+        // It's a valid ObjectId, use it directly
+        query = { incident_id: incidentId };
+      } else {
+        // It's an incident_id string (like "INCMN2QBU26IROS4"), need to look up the incident first
+        const { Incident } = await import('../../models');
+        const incident = await Incident.findOne({ incident_id: incidentId });
+        
+        if (!incident) {
+          console.log('[AssignmentService] Incident not found with incident_id:', incidentId);
+          return [];
+        }
+        
+        query = { incident_id: incident._id };
+      }
+      
+      const assignments = await Assignment.find(query)
+        .populate(['incident_id', 'resource_id', 'responder_id'])
+        .sort({ assigned_at: -1 })
+        .exec();
+      
+      console.log('[AssignmentService] Found assignments:', assignments.length);
+      return assignments;
+    } catch (error: any) {
+      console.error('[AssignmentService] Error in getAssignmentsByIncident:', error);
+      throw error;
+    }
   }
 
   async getLatestAssignmentByIncident(incidentId: string): Promise<IAssignment | null> {
-    return Assignment.findOne({ incident_id: incidentId })
-      .populate(['incident_id', 'resource_id', 'responder_id'])
-      .sort({ assigned_at: -1 })
-      .exec();
+    try {
+      // Check if incidentId is a valid ObjectId
+      let query: any;
+      if (/^[0-9a-fA-F]{24}$/.test(incidentId)) {
+        // It's a valid ObjectId, use it directly
+        query = { incident_id: incidentId };
+      } else {
+        // It's an incident_id string, need to look up the incident first
+        const { Incident } = await import('../../models');
+        const incident = await Incident.findOne({ incident_id: incidentId });
+        
+        if (!incident) {
+          return null;
+        }
+        
+        query = { incident_id: incident._id };
+      }
+      
+      const assignment = await Assignment.findOne(query)
+        .populate(['incident_id', 'resource_id', 'responder_id'])
+        .sort({ assigned_at: -1 })
+        .exec();
+      
+      return assignment;
+    } catch (error: any) {
+      console.error('[AssignmentService] Error in getLatestAssignmentByIncident:', error);
+      throw error;
+    }
   }
 
   /**
@@ -215,7 +267,7 @@ export class AssignmentService {
    */
   async getAssignmentsByResource(resourceId: string): Promise<IAssignment[]> {
     return Assignment.find({ resource_id: resourceId })
-      .populate(['incident_id', 'resource_id'])
+      .populate(['incident_id', 'resource_id', 'responder_id'])
       .sort({ assigned_at: -1 })
       .exec();
   }
@@ -227,7 +279,7 @@ export class AssignmentService {
     return Assignment.find({
       status: { $in: [AssignmentStatus.PENDING, AssignmentStatus.ACCEPTED, AssignmentStatus.IN_PROGRESS] }
     })
-      .populate(['incident_id', 'resource_id'])
+      .populate(['incident_id', 'resource_id', 'responder_id'])
       .sort({ assigned_at: -1 })
       .exec();
   }
@@ -241,34 +293,55 @@ export class AssignmentService {
     responderId?: string,
     responderUserId?: string
   ): Promise<IAssignment | null> {
-    const updateData: any = { status };
+    try {
+      console.log('[AssignmentService] updateAssignmentStatus called:', {
+        assignmentId,
+        status,
+        responderId,
+        responderUserId
+      });
 
-    if (status === AssignmentStatus.ACCEPTED) {
-      updateData.accepted_at = new Date();
-      if (responderId) updateData.responder_id = responderId;
-      if (responderUserId) updateData.accepted_by = responderUserId;
-    } else if (status === AssignmentStatus.IN_PROGRESS) {
-      updateData.started_at = new Date();
-    } else if (status === AssignmentStatus.COMPLETED) {
-      updateData.completed_at = new Date();
-    } else if (status === AssignmentStatus.CANCELLED) {
-      updateData.cancelled_at = new Date();
+      const updateData: any = { status };
+
+      if (status === AssignmentStatus.ACCEPTED) {
+        updateData.accepted_at = new Date();
+        if (responderId) updateData.responder_id = responderId;
+        if (responderUserId) updateData.accepted_by = responderUserId;
+      } else if (status === AssignmentStatus.IN_PROGRESS) {
+        updateData.started_at = new Date();
+      } else if (status === AssignmentStatus.COMPLETED) {
+        updateData.completed_at = new Date();
+      } else if (status === AssignmentStatus.CANCELLED) {
+        updateData.cancelled_at = new Date();
+      }
+
+      console.log('[AssignmentService] Update data:', updateData);
+
+      const assignment = await Assignment.findByIdAndUpdate(
+        assignmentId,
+        updateData,
+        { new: true, runValidators: false }
+      ).populate(['incident_id', 'resource_id', 'responder_id']).exec();
+
+      if (!assignment) {
+        console.error('[AssignmentService] Assignment not found:', assignmentId);
+        return null;
+      }
+
+      console.log('[AssignmentService] Assignment updated successfully');
+
+      // Calculate actual response time if started
+      if (assignment && assignment.started_at && assignment.assigned_at) {
+        const responseTime = Math.floor((assignment.started_at.getTime() - assignment.assigned_at.getTime()) / 60000);
+        assignment.actual_response_time = responseTime;
+        await assignment.save();
+      }
+
+      return assignment;
+    } catch (error: any) {
+      console.error('[AssignmentService] Error updating assignment:', error);
+      throw error;
     }
-
-    const assignment = await Assignment.findByIdAndUpdate(
-      assignmentId,
-      updateData,
-      { new: true }
-    ).populate(['incident_id', 'resource_id']).exec();
-
-    // Calculate actual response time if started
-    if (assignment && assignment.started_at && assignment.assigned_at) {
-      const responseTime = Math.floor((assignment.started_at.getTime() - assignment.assigned_at.getTime()) / 60000);
-      assignment.actual_response_time = responseTime;
-      await assignment.save();
-    }
-
-    return assignment;
   }
 
   /**
@@ -283,7 +356,7 @@ export class AssignmentService {
     // Get all pending assignments (not yet accepted)
     const pendingAssignments = await Assignment.find({
       status: AssignmentStatus.PENDING
-    }).populate(['incident_id', 'resource_id']);
+    }).populate(['incident_id', 'resource_id', 'responder_id']);
 
     for (const assignment of pendingAssignments) {
       const oldIncident = assignment.incident_id as any;

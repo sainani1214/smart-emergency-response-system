@@ -40,11 +40,6 @@ export class ResponderSeedService {
 
       const existingLinked = await Responder.findOne({ assigned_resource_id: resource._id }).exec();
       if (existingLinked) {
-        if (!resource.assigned_responder_id) {
-          resource.assigned_responder_id = existingLinked._id as any;
-          resource.operator_name = existingLinked.name;
-          await resource.save();
-        }
         linked += 1;
         continue;
       }
@@ -98,9 +93,7 @@ export class ResponderSeedService {
         await responder.save();
       }
 
-      resource.assigned_responder_id = responder._id as any;
-      resource.operator_name = responder.name;
-      await resource.save();
+      // No need to update resource - responder has the link via assigned_resource_id
       linked += 1;
     }
 

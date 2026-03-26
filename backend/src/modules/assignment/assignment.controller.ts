@@ -111,6 +111,8 @@ export const getAssignments = async (request: GetAssignmentsRequest, reply: Fast
   try {
     const query = request.query;
     
+    console.log('[getAssignments] Query:', query);
+    
     if (!query.incidentId) {
       return reply.code(400).send({ error: 'incidentId is required' });
     }
@@ -119,9 +121,12 @@ export const getAssignments = async (request: GetAssignmentsRequest, reply: Fast
       query.incidentId
     );
     
+    console.log('[getAssignments] Found assignments:', assignments.length);
+    
     return reply.send(assignments);
   } catch (error: any) {
-    return reply.code(500).send({ error: error.message });
+    console.error('[getAssignments] Error:', error);
+    return reply.code(500).send({ error: error.message, stack: error.stack });
   }
 };
 
@@ -130,17 +135,24 @@ export const updateAssignmentStatus = async (request: UpdateStatusRequest & Auth
     const { id } = request.params;
     const { status } = request.body;
     
+    console.log('Update assignment status:', { id, status, user: request.user });
     
     let responderId, responderUserId;
     if (status === 'accepted' && request.user && request.user.role === 'responder') {
+      console.log('Looking for responder with responder_id:', request.user.userId);
       const responder = await Responder.findOne({ responder_id: request.user.userId });
+      console.log('Found responder:', responder ? responder.responder_id : 'NOT FOUND');
+      
       if (responder) {
         responderId = responder._id.toString();
         responderUserId = responder.responder_id;
         
-        
+        // Increment incidents handled
         responder.total_incidents_handled += 1;
         await responder.save();
+        console.log('Updated responder incidents count to:', responder.total_incidents_handled);
+      } else {
+        console.warn('Responder not found for userId:', request.user.userId);
       }
     }
       
@@ -152,7 +164,8 @@ export const updateAssignmentStatus = async (request: UpdateStatusRequest & Auth
       
     return reply.send(assignment);
   } catch (error: any) {
-    return reply.code(500).send({ error: error.message });
+    console.error('Error updating assignment status:', error);
+    return reply.code(500).send({ error: error.message, stack: error.stack });
   }
 };
 
