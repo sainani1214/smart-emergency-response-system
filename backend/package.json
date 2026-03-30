@@ -3,14 +3,20 @@
   "version": "1.0.0",
   "description": "Smart Emergency Response System - Backend API",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "postinstall": "npm run build",
     "lint": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1",
     "setup:responders": "ts-node scripts/setup-responders.ts",
-    "seed:resources": "ts-node scripts/seed-resources.ts"
+    "seed:resources": "ts-node scripts/seed-resources.ts",
+    "seed:assignments": "ts-node scripts/seed-assignments.ts"
   },
   "keywords": [
     "emergency",
